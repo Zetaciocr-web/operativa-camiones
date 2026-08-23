@@ -23,7 +23,7 @@
       </select>
     </div>
 
-    <!-- Formulario de 13 Campos -->
+    <!-- Formulario de Registros -->
     <form id="formCamion" class="space-y-3">
       
       <div>
@@ -34,7 +34,7 @@
       <div class="grid grid-cols-2 gap-2">
         <div>
           <label class="block text-xs font-bold text-gray-700">PLACA</label>
-          <input type="text" id="placa" placeholder="" class="w-full p-2 border rounded text-sm">
+          <input type="text" id="placa" placeholder="Ej. 2380-HCB" class="w-full p-2 border rounded text-sm">
         </div>
         <div>
           <label class="block text-xs font-bold text-gray-700">LICENCIA</label>
@@ -70,30 +70,45 @@
 
       <hr class="my-2">
 
-      <div class="grid grid-cols-3 gap-2">
+      <!-- Sección de Pesos con Cálculo Automático -->
+      <div class="grid grid-cols-3 gap-2 bg-blue-50/50 p-2 rounded-lg border border-blue-100">
         <div>
           <label class="block text-xs font-bold text-gray-600">PESO TARA</label>
-          <input type="number" id="tara" step="any" class="w-full p-2 border rounded text-sm">
+          <input type="number" id="tara" step="any" oninput="calcularPesoNeto()" placeholder="0.00" class="w-full p-2 border rounded text-sm bg-white">
         </div>
         <div>
-          <label class="block text-xs font-bold text-gray-600">PESO NETO</label>
-          <input type="number" id="neto" step="any" class="w-full p-2 border rounded text-sm">
+          <label class="block text-xs font-bold text-blue-800">PESO NETO (Auto)</label>
+          <input type="number" id="neto" step="any" readonly placeholder="0.00" class="w-full p-2 border rounded text-sm bg-blue-100 font-bold text-blue-900 cursor-not-allowed">
         </div>
         <div>
           <label class="block text-xs font-bold text-gray-600">PESO BRUTO</label>
-          <input type="number" id="bruto" step="any" class="w-full p-2 border rounded text-sm">
+          <input type="number" id="bruto" step="any" oninput="calcularPesoNeto()" placeholder="0.00" class="w-full p-2 border rounded text-sm bg-white">
         </div>
       </div>
 
-      <div class="flex justify-around pt-2">
-        <label class="flex items-center space-x-2 cursor-pointer">
-          <input type="radio" name="estado" id="llego" value="LLEGO" class="h-5 w-5 text-green-600">
-          <span class="text-sm font-bold text-green-700">LLEGÓ</span>
-        </label>
-        <label class="flex items-center space-x-2 cursor-pointer">
-          <input type="radio" name="estado" id="noLlego" value="NO LLEGO" class="h-5 w-5 text-red-600">
-          <span class="text-sm font-bold text-red-700">NO LLEGÓ</span>
-        </label>
+      <!-- Estado Opcional (Llegó / No llegó) -->
+      <div class="bg-gray-50 p-2 rounded-lg border border-gray-200">
+        <label class="block text-xs font-bold text-gray-700 mb-1">ESTADO DE LLEGADA (OPCIONAL):</label>
+        <div class="flex justify-around items-center pt-1">
+          <label class="flex items-center space-x-1 cursor-pointer">
+            <input type="radio" name="estado" id="llego" value="LLEGO" class="h-4 w-4 text-green-600">
+            <span class="text-xs font-bold text-green-700">LLEGÓ</span>
+          </label>
+          <label class="flex items-center space-x-1 cursor-pointer">
+            <input type="radio" name="estado" id="noLlego" value="NO LLEGO" class="h-4 w-4 text-red-600">
+            <span class="text-xs font-bold text-red-700">NO LLEGÓ</span>
+          </label>
+          <label class="flex items-center space-x-1 cursor-pointer">
+            <input type="radio" name="estado" id="ninguno" value="" checked class="h-4 w-4 text-gray-400">
+            <span class="text-xs font-bold text-gray-500">SIN MARCAR</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Campo de Observaciones -->
+      <div>
+        <label class="block text-xs font-bold text-gray-700 mb-1">OBSERVACIONES</label>
+        <textarea id="observaciones" rows="2" placeholder="Ej. El camionero se fue a comprar repuestos, mañana lo hará..." class="w-full p-2 border rounded text-sm"></textarea>
       </div>
 
       <!-- Botón Guardar -->
@@ -120,6 +135,19 @@
     let datosCamiones = JSON.parse(localStorage.getItem("datosCamiones")) || [];
     let registroSeleccionadoId = null;
 
+    // Función para calcular automáticamente el Peso Neto = Peso Bruto - Peso Tara
+    function calcularPesoNeto() {
+      const tara = parseFloat(document.getElementById("tara").value) || 0;
+      const bruto = parseFloat(document.getElementById("bruto").value) || 0;
+      
+      if (document.getElementById("bruto").value !== "" || document.getElementById("tara").value !== "") {
+        const neto = bruto - tara;
+        document.getElementById("neto").value = neto >= 0 ? neto.toFixed(2) : "0.00";
+      } else {
+        document.getElementById("neto").value = "";
+      }
+    }
+
     function poblarSelect(lista) {
       const select = document.getElementById("selectConductor");
       if (lista.length === 0) {
@@ -144,7 +172,8 @@
         (c.placa && c.placa.toLowerCase().includes(texto)) ||
         (c.licencia && c.licencia.toLowerCase().includes(texto)) ||
         (c.tel && c.tel.toLowerCase().includes(texto)) ||
-        (c.contenedor && c.contenedor.toLowerCase().includes(texto))
+        (c.contenedor && c.contenedor.toLowerCase().includes(texto)) ||
+        (c.observaciones && c.observaciones.toLowerCase().includes(texto))
       );
 
       poblarSelect(filtrados);
@@ -178,11 +207,15 @@
       document.getElementById("precinto").value = c.precinto || "";
       document.getElementById("contenedor").value = c.contenedor || "";
       document.getElementById("tara").value = c.tara || "";
-      document.getElementById("neto").value = c.neto || "";
       document.getElementById("bruto").value = c.bruto || "";
+      document.getElementById("neto").value = c.neto || "";
+      document.getElementById("observaciones").value = c.observaciones || "";
       
       document.getElementById("llego").checked = (c.estado === "LLEGO");
       document.getElementById("noLlego").checked = (c.estado === "NO LLEGO");
+      document.getElementById("ninguno").checked = (!c.estado || c.estado === "");
+
+      calcularPesoNeto();
     }
 
     function guardarRegistro() {
@@ -199,6 +232,12 @@
         idActual = datosCamiones.length > 0 ? Math.max(...datosCamiones.map(d => d.id)) + 1 : 1;
       }
 
+      let estadoSeleccionado = "";
+      if (document.getElementById("llego").checked) estadoSeleccionado = "LLEGO";
+      else if (document.getElementById("noLlego").checked) estadoSeleccionado = "NO LLEGO";
+
+      calcularPesoNeto();
+
       const nuevoRegistro = {
         id: idActual,
         conductor: conductor,
@@ -212,7 +251,8 @@
         tara: document.getElementById("tara").value,
         neto: document.getElementById("neto").value,
         bruto: document.getElementById("bruto").value,
-        estado: document.getElementById("llego").checked ? "LLEGO" : (document.getElementById("noLlego").checked ? "NO LLEGO" : "")
+        estado: estadoSeleccionado,
+        observaciones: document.getElementById("observaciones").value
       };
 
       if (registroSeleccionadoId !== null) {
@@ -256,6 +296,7 @@
       registroSeleccionadoId = null;
       document.getElementById("formCamion").reset();
       document.getElementById("selectConductor").value = "";
+      document.getElementById("ninguno").checked = true;
     }
 
     async function exportarExcelEstilizado() {
@@ -268,7 +309,7 @@
       const worksheet = workbook.addWorksheet("Operativa Camiones");
 
       // 1. Título principal del reporte
-      worksheet.mergeCells('A1:M1');
+      worksheet.mergeCells('A1:N1');
       const tituloCell = worksheet.getCell('A1');
       tituloCell.value = "OPERATIVA DE CAMIONES";
       tituloCell.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFFFF' } };
@@ -278,7 +319,7 @@
 
       // 2. Encabezados de columnas
       const columnas = [
-        { header: "CONDUCTOR", key: "conductor", width: 32 },
+        { header: "CONDUCTOR", key: "conductor", width: 28 },
         { header: "PLACA", key: "placa", width: 14 },
         { header: "LICENCIA", key: "licencia", width: 14 },
         { header: "EXP", key: "exp", width: 8 },
@@ -286,11 +327,12 @@
         { header: "EMPRESA", key: "empresa", width: 16 },
         { header: "PRECINTO", key: "precinto", width: 16 },
         { header: "CONTENEDOR", key: "contenedor", width: 16 },
-        { header: "PESO TARA", key: "tara", width: 13 },
-        { header: "PESO NETO", key: "neto", width: 13 },
-        { header: "PESO BRUTO", key: "bruto", width: 13 },
-        { header: "LLEGÓ", key: "llego", width: 15 },
-        { header: "NO LLEGÓ", key: "noLlego", width: 15 }
+        { header: "PESO TARA", key: "tara", width: 14 },
+        { header: "PESO NETO", key: "neto", width: 14 },
+        { header: "PESO BRUTO", key: "bruto", width: 14 },
+        { header: "LLEGÓ", key: "llego", width: 14 },
+        { header: "NO LLEGÓ", key: "noLlego", width: 14 },
+        { header: "OBSERVACIONES", key: "observaciones", width: 38 }
       ];
 
       const headerRow = worksheet.getRow(3);
@@ -310,53 +352,64 @@
         right: { style: 'thin', color: { argb: 'D9D9D9' } }
       };
 
-      // 3. Insertar los datos con formato
+      // 3. Insertar los datos con la fórmula de Excel en Peso Neto (= K - I)
       datosCamiones.forEach((item, rowIndex) => {
-        const row = worksheet.getRow(rowIndex + 4);
+        const currentRow = rowIndex + 4;
+        const row = worksheet.getRow(currentRow);
         const llegoTexto = item.estado === "LLEGO" ? "CONFIRMADO" : "";
         const noLlegoTexto = item.estado === "NO LLEGO" ? "PENDIENTE" : "";
 
-        const valores = [
-          item.conductor || "",
-          item.placa || "",
-          item.licencia || "",
-          item.exp || "",
-          item.tel || "",
-          item.empresa || "",
-          item.precinto || "",
-          item.contenedor || "",
-          item.tara ? parseFloat(item.tara) : "",
-          item.neto ? parseFloat(item.neto) : "",
-          item.bruto ? parseFloat(item.bruto) : "",
-          llegoTexto,
-          noLlegoTexto
-        ];
+        const taraNum = item.tara ? parseFloat(item.tara) : "";
+        const brutoNum = item.bruto ? parseFloat(item.bruto) : "";
 
-        valores.forEach((val, colIndex) => {
-          const cell = row.getCell(colIndex + 1);
-          cell.value = val;
+        row.getCell(1).value = item.conductor || "";
+        row.getCell(2).value = item.placa || "";
+        row.getCell(3).value = item.licencia || "";
+        row.getCell(4).value = item.exp || "";
+        row.getCell(5).value = item.tel || "";
+        row.getCell(6).value = item.empresa || "";
+        row.getCell(7).value = item.precinto || "";
+        row.getCell(8).value = item.contenedor || "";
+        
+        // Pesos
+        row.getCell(9).value = taraNum;
+        row.getCell(10).value = { formula: `K${currentRow}-I${currentRow}` }; // Fórmula Excel: Bruto - Tara
+        row.getCell(11).value = brutoNum;
+
+        // Estados
+        row.getCell(12).value = llegoTexto;
+        row.getCell(13).value = noLlegoTexto;
+        row.getCell(14).value = item.observaciones || "";
+
+        for (let c = 1; c <= 14; c++) {
+          const cell = row.getCell(c);
           cell.border = thinBorder;
           cell.font = { name: 'Arial', size: 9 };
 
-          if (colIndex >= 8 && colIndex <= 10) {
+          if (c >= 9 && c <= 11) {
+            cell.numFmt = '#,##0.00';
             cell.alignment = { vertical: 'middle', horizontal: 'right' };
-          } else if (colIndex === 0) {
-            cell.alignment = { vertical: 'middle', horizontal: 'left' };
+          } else if (c === 1 || c === 14) {
+            cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
           } else {
             cell.alignment = { vertical: 'middle', horizontal: 'center' };
           }
 
-          if (colIndex === 11 && llegoTexto === "CONFIRMADO") {
+          if (c === 10) {
+            cell.font = { name: 'Arial', size: 9, bold: true };
+          }
+
+          if (c === 12 && llegoTexto === "CONFIRMADO") {
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'E2EFDA' } };
             cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: '375623' } };
           }
-          if (colIndex === 12 && noLlegoTexto === "PENDIENTE") {
+          if (c === 13 && noLlegoTexto === "PENDIENTE") {
             cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FCE4D6' } };
             cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'C65911' } };
           }
-        });
+        }
 
-        row.height = 20;
+        row.height = 24;
       });
 
       columnas.forEach((col, i) => {
