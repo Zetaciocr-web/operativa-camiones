@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control Operativa de Camiones</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Librería ExcelJS para dar formato y estilos visuales al Excel -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.3.0/exceljs.min.js"></script>
+</head>
+<body class="bg-gray-100 p-3 min-h-screen">
+
+  <div class="max-w-md mx-auto bg-white rounded-xl shadow-md overflow-hidden p-5">
+    <h1 class="text-xl font-bold text-gray-800 text-center mb-4">Operativa de Camiones</h1>
+    
+    <!-- Sección de Búsqueda -->
+    <div class="mb-4 bg-blue-50 p-3 rounded-lg border border-blue-200">
+      <label class="block text-xs font-bold text-blue-800 mb-1">BUSCAR REGISTRO GUARDADO:</label>
+      <input type="text" id="buscador" oninput="buscarEnTiempoReal()" placeholder="Escriba nombre, placa o contenedor..." 
+             class="w-full p-2 mb-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm bg-white">
+      <select id="selectConductor" onchange="cargarDatosDesdeSelect()" class="w-full p-2 border rounded-lg bg-white text-sm">
+        <option value="">-- Sin registros guardados --</option>
+      </select>
+    </div>
+
+    <!-- Formulario de 13 Campos -->
+    <form id="formCamion" class="space-y-3">
+      
+      <div>
+        <label class="block text-xs font-bold text-gray-700">CONDUCTOR</label>
+        <input type="text" id="conductor" placeholder="Nombre completo" class="w-full p-2 border rounded text-sm focus:border-blue-500">
+      </div>
+
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="block text-xs font-bold text-gray-700">PLACA</label>
+          <input type="text" id="placa" placeholder="" class="w-full p-2 border rounded text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-700">LICENCIA</label>
+          <input type="text" id="licencia" placeholder="N° Licencia" class="w-full p-2 border rounded text-sm">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-2">
+        <div>
+          <label class="block text-xs font-bold text-gray-700">EXP</label>
+          <input type="text" id="exp" placeholder="Ej. LP" class="w-full p-2 border rounded text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-700">TEL</label>
+          <input type="tel" id="tel" placeholder="Teléfono" class="w-full p-2 border rounded text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-700">EMPRESA</label>
+          <input type="text" id="empresa" placeholder="Ej. FRAMAR" class="w-full p-2 border rounded text-sm">
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="block text-xs font-bold text-blue-600">PRECINTO</label>
+          <input type="text" id="precinto" placeholder="N° Precinto" class="w-full p-2 border rounded text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-700">CONTENEDOR</label>
+          <input type="text" id="contenedor" placeholder="N° Contenedor" class="w-full p-2 border rounded text-sm">
+        </div>
+      </div>
+
+      <hr class="my-2">
+
+      <div class="grid grid-cols-3 gap-2">
+        <div>
+          <label class="block text-xs font-bold text-gray-600">PESO TARA</label>
+          <input type="number" id="tara" step="any" class="w-full p-2 border rounded text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-600">PESO NETO</label>
+          <input type="number" id="neto" step="any" class="w-full p-2 border rounded text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-gray-600">PESO BRUTO</label>
+          <input type="number" id="bruto" step="any" class="w-full p-2 border rounded text-sm">
+        </div>
+      </div>
+
+      <div class="flex justify-around pt-2">
+        <label class="flex items-center space-x-2 cursor-pointer">
+          <input type="radio" name="estado" id="llego" value="LLEGO" class="h-5 w-5 text-green-600">
+          <span class="text-sm font-bold text-green-700">LLEGÓ</span>
+        </label>
+        <label class="flex items-center space-x-2 cursor-pointer">
+          <input type="radio" name="estado" id="noLlego" value="NO LLEGO" class="h-5 w-5 text-red-600">
+          <span class="text-sm font-bold text-red-700">NO LLEGÓ</span>
+        </label>
+      </div>
+
+      <!-- Botón Guardar -->
+      <button type="button" onclick="guardarRegistro()" class="w-full mt-3 bg-blue-600 text-white font-bold py-3 rounded-lg shadow-md hover:bg-blue-700 text-sm">
+        Guardar Datos
+      </button>
+
+      <!-- Botones Secundarios -->
+      <div class="grid grid-cols-3 gap-2 pt-1">
+        <button type="button" onclick="limpiarFormulario()" class="bg-gray-500 text-white font-bold py-2 rounded-lg text-xs">
+          Limpiar
+        </button>
+        <button type="button" onclick="borrarRegistro()" class="bg-red-600 text-white font-bold py-2 rounded-lg text-xs hover:bg-red-700">
+          Borrar
+        </button>
+        <button type="button" onclick="exportarExcelEstilizado()" class="bg-green-600 text-white font-bold py-2 rounded-lg text-xs hover:bg-green-700">
+          Descargar Excel
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    let datosCamiones = JSON.parse(localStorage.getItem("datosCamiones")) || [];
+    let registroSeleccionadoId = null;
+
+    function poblarSelect(lista) {
+      const select = document.getElementById("selectConductor");
+      if (lista.length === 0) {
+        select.innerHTML = '<option value="">-- Sin registros guardados --</option>';
+        return;
+      }
+      select.innerHTML = '<option value="">-- Seleccionar de los registros --</option>';
+      lista.forEach(item => {
+        select.innerHTML += `<option value="${item.id}">${item.conductor} (${item.placa || 'Sin placa'})</option>`;
+      });
+    }
+
+    function buscarEnTiempoReal() {
+      const texto = document.getElementById("buscador").value.toLowerCase().trim();
+      if (!texto) {
+        poblarSelect(datosCamiones);
+        return;
+      }
+
+      const filtrados = datosCamiones.filter(c => 
+        (c.conductor && c.conductor.toLowerCase().includes(texto)) ||
+        (c.placa && c.placa.toLowerCase().includes(texto)) ||
+        (c.licencia && c.licencia.toLowerCase().includes(texto)) ||
+        (c.tel && c.tel.toLowerCase().includes(texto)) ||
+        (c.contenedor && c.contenedor.toLowerCase().includes(texto))
+      );
+
+      poblarSelect(filtrados);
+
+      if (filtrados.length > 0) {
+        document.getElementById("selectConductor").value = filtrados[0].id;
+        cargarCamionEnFormulario(filtrados[0]);
+      } else {
+        limpiarFormularioSinBuscador();
+      }
+    }
+
+    function cargarDatosDesdeSelect() {
+      const id = document.getElementById("selectConductor").value;
+      if (id === "") {
+        limpiarFormularioSinBuscador();
+        return;
+      }
+      const c = datosCamiones.find(item => item.id === parseInt(id));
+      if (c) cargarCamionEnFormulario(c);
+    }
+
+    function cargarCamionEnFormulario(c) {
+      registroSeleccionadoId = c.id;
+      document.getElementById("conductor").value = c.conductor || "";
+      document.getElementById("placa").value = c.placa || "";
+      document.getElementById("licencia").value = c.licencia || "";
+      document.getElementById("exp").value = c.exp || "";
+      document.getElementById("tel").value = c.tel || "";
+      document.getElementById("empresa").value = c.empresa || "";
+      document.getElementById("precinto").value = c.precinto || "";
+      document.getElementById("contenedor").value = c.contenedor || "";
+      document.getElementById("tara").value = c.tara || "";
+      document.getElementById("neto").value = c.neto || "";
+      document.getElementById("bruto").value = c.bruto || "";
+      
+      document.getElementById("llego").checked = (c.estado === "LLEGO");
+      document.getElementById("noLlego").checked = (c.estado === "NO LLEGO");
+    }
+
+    function guardarRegistro() {
+      const conductor = document.getElementById("conductor").value.trim();
+      if (!conductor) {
+        alert("Por favor ingresa al menos el nombre del CONDUCTOR.");
+        return;
+      }
+
+      let idActual;
+      if (registroSeleccionadoId !== null) {
+        idActual = registroSeleccionadoId;
+      } else {
+        idActual = datosCamiones.length > 0 ? Math.max(...datosCamiones.map(d => d.id)) + 1 : 1;
+      }
+
+      const nuevoRegistro = {
+        id: idActual,
+        conductor: conductor,
+        placa: document.getElementById("placa").value,
+        licencia: document.getElementById("licencia").value,
+        exp: document.getElementById("exp").value,
+        tel: document.getElementById("tel").value,
+        empresa: document.getElementById("empresa").value,
+        precinto: document.getElementById("precinto").value,
+        contenedor: document.getElementById("contenedor").value,
+        tara: document.getElementById("tara").value,
+        neto: document.getElementById("neto").value,
+        bruto: document.getElementById("bruto").value,
+        estado: document.getElementById("llego").checked ? "LLEGO" : (document.getElementById("noLlego").checked ? "NO LLEGO" : "")
+      };
+
+      if (registroSeleccionadoId !== null) {
+        const index = datosCamiones.findIndex(item => item.id === registroSeleccionadoId);
+        datosCamiones[index] = nuevoRegistro;
+      } else {
+        datosCamiones.push(nuevoRegistro);
+      }
+
+      localStorage.setItem("datosCamiones", JSON.stringify(datosCamiones));
+      alert("¡Guardado correctamente!");
+      poblarSelect(datosCamiones);
+      limpiarFormulario();
+    }
+
+    function borrarRegistro() {
+      if (registroSeleccionadoId === null) {
+        alert("Primero busca y selecciona un conductor para poder borrarlo.");
+        return;
+      }
+
+      const conductorNombre = document.getElementById("conductor").value;
+      if (confirm(`¿Estás seguro de eliminar a: ${conductorNombre}?`)) {
+        datosCamiones = datosCamiones.filter(item => item.id !== registroSeleccionadoId);
+        datosCamiones = datosCamiones.map((item, index) => ({ ...item, id: index + 1 }));
+
+        localStorage.setItem("datosCamiones", JSON.stringify(datosCamiones));
+        alert("Registro eliminado.");
+        poblarSelect(datosCamiones);
+        limpiarFormulario();
+      }
+    }
+
+    function limpiarFormulario() {
+      document.getElementById("buscador").value = "";
+      limpiarFormularioSinBuscador();
+      poblarSelect(datosCamiones);
+    }
+
+    function limpiarFormularioSinBuscador() {
+      registroSeleccionadoId = null;
+      document.getElementById("formCamion").reset();
+      document.getElementById("selectConductor").value = "";
+    }
+
+    async function exportarExcelEstilizado() {
+      if (datosCamiones.length === 0) {
+        alert("No hay registros guardados para exportar.");
+        return;
+      }
+
+      const workbook = new ExcelJS.Workbook();
+      const worksheet = workbook.addWorksheet("Operativa Camiones");
+
+      // 1. Título principal del reporte
+      worksheet.mergeCells('A1:M1');
+      const tituloCell = worksheet.getCell('A1');
+      tituloCell.value = "OPERATIVA DE CAMIONES";
+      tituloCell.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFFFF' } };
+      tituloCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1F4E78' } };
+      tituloCell.alignment = { vertical: 'middle', horizontal: 'center' };
+      worksheet.getRow(1).height = 30;
+
+      // 2. Encabezados de columnas
+      const columnas = [
+        { header: "CONDUCTOR", key: "conductor", width: 32 },
+        { header: "PLACA", key: "placa", width: 14 },
+        { header: "LICENCIA", key: "licencia", width: 14 },
+        { header: "EXP", key: "exp", width: 8 },
+        { header: "TEL", key: "tel", width: 14 },
+        { header: "EMPRESA", key: "empresa", width: 16 },
+        { header: "PRECINTO", key: "precinto", width: 16 },
+        { header: "CONTENEDOR", key: "contenedor", width: 16 },
+        { header: "PESO TARA", key: "tara", width: 13 },
+        { header: "PESO NETO", key: "neto", width: 13 },
+        { header: "PESO BRUTO", key: "bruto", width: 13 },
+        { header: "LLEGÓ", key: "llego", width: 15 },
+        { header: "NO LLEGÓ", key: "noLlego", width: 15 }
+      ];
+
+      const headerRow = worksheet.getRow(3);
+      columnas.forEach((col, index) => {
+        const cell = headerRow.getCell(index + 1);
+        cell.value = col.header;
+        cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFF' } };
+        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '2F5597' } };
+        cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      });
+      headerRow.height = 24;
+
+      const thinBorder = {
+        top: { style: 'thin', color: { argb: 'D9D9D9' } },
+        left: { style: 'thin', color: { argb: 'D9D9D9' } },
+        bottom: { style: 'thin', color: { argb: 'D9D9D9' } },
+        right: { style: 'thin', color: { argb: 'D9D9D9' } }
+      };
+
+      // 3. Insertar los datos con formato
+      datosCamiones.forEach((item, rowIndex) => {
+        const row = worksheet.getRow(rowIndex + 4);
+        const llegoTexto = item.estado === "LLEGO" ? "CONFIRMADO" : "";
+        const noLlegoTexto = item.estado === "NO LLEGO" ? "PENDIENTE" : "";
+
+        const valores = [
+          item.conductor || "",
+          item.placa || "",
+          item.licencia || "",
+          item.exp || "",
+          item.tel || "",
+          item.empresa || "",
+          item.precinto || "",
+          item.contenedor || "",
+          item.tara ? parseFloat(item.tara) : "",
+          item.neto ? parseFloat(item.neto) : "",
+          item.bruto ? parseFloat(item.bruto) : "",
+          llegoTexto,
+          noLlegoTexto
+        ];
+
+        valores.forEach((val, colIndex) => {
+          const cell = row.getCell(colIndex + 1);
+          cell.value = val;
+          cell.border = thinBorder;
+          cell.font = { name: 'Arial', size: 9 };
+
+          if (colIndex >= 8 && colIndex <= 10) {
+            cell.alignment = { vertical: 'middle', horizontal: 'right' };
+          } else if (colIndex === 0) {
+            cell.alignment = { vertical: 'middle', horizontal: 'left' };
+          } else {
+            cell.alignment = { vertical: 'middle', horizontal: 'center' };
+          }
+
+          if (colIndex === 11 && llegoTexto === "CONFIRMADO") {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'E2EFDA' } };
+            cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: '375623' } };
+          }
+          if (colIndex === 12 && noLlegoTexto === "PENDIENTE") {
+            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FCE4D6' } };
+            cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'C65911' } };
+          }
+        });
+
+        row.height = 20;
+      });
+
+      columnas.forEach((col, i) => {
+        worksheet.getColumn(i + 1).width = col.width;
+      });
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = "OPERATIVA_DE_CAMIONES.xlsx";
+      link.click();
+    }
+
+    poblarSelect(datosCamiones);
+  </script>
+</body>
+</html>
