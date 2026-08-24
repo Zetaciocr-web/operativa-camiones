@@ -1,0 +1,9 @@
+/* Estilos personalizados del proyecto */
+body {
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+/* Transiciones suaves para botones */
+button {
+  transition: background-color 0.2s ease-in-out;
+}
