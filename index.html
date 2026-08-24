@@ -16,9 +16,9 @@
     <!-- Sección de Búsqueda -->
     <div class="mb-4 bg-blue-50 p-3 rounded-lg border border-blue-200">
       <label class="block text-xs font-bold text-blue-800 mb-1">BUSCAR REGISTRO GUARDADO:</label>
-      <input type="text" id="buscador" oninput="buscarEnTiempoReal()" placeholder="Escriba nombre, placa o contenedor..." 
+      <input type="text" id="buscador" placeholder="Escriba nombre, placa o contenedor..." 
              class="w-full p-2 mb-2 border rounded-lg focus:ring-2 focus:ring-blue-500 text-sm bg-white">
-      <select id="selectConductor" onchange="cargarDatosDesdeSelect()" class="w-full p-2 border rounded-lg bg-white text-sm">
+      <select id="selectConductor" class="w-full p-2 border rounded-lg bg-white text-sm">
         <option value="">-- Sin registros guardados --</option>
       </select>
     </div>
@@ -74,7 +74,7 @@
       <div class="grid grid-cols-3 gap-2 bg-blue-50/50 p-2 rounded-lg border border-blue-100">
         <div>
           <label class="block text-xs font-bold text-gray-600">PESO TARA</label>
-          <input type="number" id="tara" step="any" oninput="calcularPesoNeto()" placeholder="0.00" class="w-full p-2 border rounded text-sm bg-white">
+          <input type="number" id="tara" step="any" placeholder="0.00" class="w-full p-2 border rounded text-sm bg-white">
         </div>
         <div>
           <label class="block text-xs font-bold text-blue-800">PESO NETO</label>
@@ -82,7 +82,7 @@
         </div>
         <div>
           <label class="block text-xs font-bold text-gray-600">PESO BRUTO</label>
-          <input type="number" id="bruto" step="any" oninput="calcularPesoNeto()" placeholder="0.00" class="w-full p-2 border rounded text-sm bg-white">
+          <input type="number" id="bruto" step="any" placeholder="0.00" class="w-full p-2 border rounded text-sm bg-white">
         </div>
       </div>
 
@@ -112,319 +112,26 @@
       </div>
 
       <!-- Botón Guardar -->
-      <button type="button" onclick="guardarRegistro()" class="w-full mt-3 bg-blue-600 text-white font-bold py-3 rounded-lg shadow-md hover:bg-blue-700 text-sm">
+      <button type="button" id="btnGuardar" class="w-full mt-3 bg-blue-600 text-white font-bold py-3 rounded-lg shadow-md hover:bg-blue-700 text-sm">
         Guardar Datos
       </button>
 
       <!-- Botones Secundarios -->
       <div class="grid grid-cols-3 gap-2 pt-1">
-        <button type="button" onclick="limpiarFormulario()" class="bg-gray-500 text-white font-bold py-2 rounded-lg text-xs">
+        <button type="button" id="btnLimpiar" class="bg-gray-500 text-white font-bold py-2 rounded-lg text-xs">
           Limpiar
         </button>
-        <button type="button" onclick="borrarRegistro()" class="bg-red-600 text-white font-bold py-2 rounded-lg text-xs hover:bg-red-700">
+        <button type="button" id="btnBorrar" class="bg-red-600 text-white font-bold py-2 rounded-lg text-xs hover:bg-red-700">
           Borrar
         </button>
-        <button type="button" onclick="exportarExcelEstilizado()" class="bg-green-600 text-white font-bold py-2 rounded-lg text-xs hover:bg-green-700">
+        <button type="button" id="btnExportar" class="bg-green-600 text-white font-bold py-2 rounded-lg text-xs hover:bg-green-700">
           Descargar Excel
         </button>
       </div>
     </form>
   </div>
 
-  <script>
-    let datosCamiones = JSON.parse(localStorage.getItem("datosCamiones")) || [];
-    let registroSeleccionadoId = null;
-
-    // Función para calcular automáticamente el Peso Neto = Peso Bruto - Peso Tara
-    function calcularPesoNeto() {
-      const tara = parseFloat(document.getElementById("tara").value) || 0;
-      const bruto = parseFloat(document.getElementById("bruto").value) || 0;
-      
-      if (document.getElementById("bruto").value !== "" || document.getElementById("tara").value !== "") {
-        const neto = bruto - tara;
-        document.getElementById("neto").value = neto >= 0 ? neto.toFixed(2) : "0.00";
-      } else {
-        document.getElementById("neto").value = "";
-      }
-    }
-
-    function poblarSelect(lista) {
-      const select = document.getElementById("selectConductor");
-      if (lista.length === 0) {
-        select.innerHTML = '<option value="">-- Sin registros guardados --</option>';
-        return;
-      }
-      select.innerHTML = '<option value="">-- Seleccionar de los registros --</option>';
-      lista.forEach(item => {
-        select.innerHTML += `<option value="${item.id}">${item.conductor} (${item.placa || 'Sin placa'})</option>`;
-      });
-    }
-
-    function buscarEnTiempoReal() {
-      const texto = document.getElementById("buscador").value.toLowerCase().trim();
-      if (!texto) {
-        poblarSelect(datosCamiones);
-        return;
-      }
-
-      const filtrados = datosCamiones.filter(c => 
-        (c.conductor && c.conductor.toLowerCase().includes(texto)) ||
-        (c.placa && c.placa.toLowerCase().includes(texto)) ||
-        (c.licencia && c.licencia.toLowerCase().includes(texto)) ||
-        (c.tel && c.tel.toLowerCase().includes(texto)) ||
-        (c.contenedor && c.contenedor.toLowerCase().includes(texto)) ||
-        (c.observaciones && c.observaciones.toLowerCase().includes(texto))
-      );
-
-      poblarSelect(filtrados);
-
-      if (filtrados.length > 0) {
-        document.getElementById("selectConductor").value = filtrados[0].id;
-        cargarCamionEnFormulario(filtrados[0]);
-      } else {
-        limpiarFormularioSinBuscador();
-      }
-    }
-
-    function cargarDatosDesdeSelect() {
-      const id = document.getElementById("selectConductor").value;
-      if (id === "") {
-        limpiarFormularioSinBuscador();
-        return;
-      }
-      const c = datosCamiones.find(item => item.id === parseInt(id));
-      if (c) cargarCamionEnFormulario(c);
-    }
-
-    function cargarCamionEnFormulario(c) {
-      registroSeleccionadoId = c.id;
-      document.getElementById("conductor").value = c.conductor || "";
-      document.getElementById("placa").value = c.placa || "";
-      document.getElementById("licencia").value = c.licencia || "";
-      document.getElementById("exp").value = c.exp || "";
-      document.getElementById("tel").value = c.tel || "";
-      document.getElementById("empresa").value = c.empresa || "";
-      document.getElementById("precinto").value = c.precinto || "";
-      document.getElementById("contenedor").value = c.contenedor || "";
-      document.getElementById("tara").value = c.tara || "";
-      document.getElementById("bruto").value = c.bruto || "";
-      document.getElementById("neto").value = c.neto || "";
-      document.getElementById("observaciones").value = c.observaciones || "";
-      
-      document.getElementById("llego").checked = (c.estado === "LLEGO");
-      document.getElementById("noLlego").checked = (c.estado === "NO LLEGO");
-      document.getElementById("ninguno").checked = (!c.estado || c.estado === "");
-
-      calcularPesoNeto();
-    }
-
-    function guardarRegistro() {
-      const conductor = document.getElementById("conductor").value.trim();
-      if (!conductor) {
-        alert("Por favor ingresa al menos el nombre del CONDUCTOR.");
-        return;
-      }
-
-      let idActual;
-      if (registroSeleccionadoId !== null) {
-        idActual = registroSeleccionadoId;
-      } else {
-        idActual = datosCamiones.length > 0 ? Math.max(...datosCamiones.map(d => d.id)) + 1 : 1;
-      }
-
-      let estadoSeleccionado = "";
-      if (document.getElementById("llego").checked) estadoSeleccionado = "LLEGO";
-      else if (document.getElementById("noLlego").checked) estadoSeleccionado = "NO LLEGO";
-
-      calcularPesoNeto();
-
-      const nuevoRegistro = {
-        id: idActual,
-        conductor: conductor,
-        placa: document.getElementById("placa").value,
-        licencia: document.getElementById("licencia").value,
-        exp: document.getElementById("exp").value,
-        tel: document.getElementById("tel").value,
-        empresa: document.getElementById("empresa").value,
-        precinto: document.getElementById("precinto").value,
-        contenedor: document.getElementById("contenedor").value,
-        tara: document.getElementById("tara").value,
-        neto: document.getElementById("neto").value,
-        bruto: document.getElementById("bruto").value,
-        estado: estadoSeleccionado,
-        observaciones: document.getElementById("observaciones").value
-      };
-
-      if (registroSeleccionadoId !== null) {
-        const index = datosCamiones.findIndex(item => item.id === registroSeleccionadoId);
-        datosCamiones[index] = nuevoRegistro;
-      } else {
-        datosCamiones.push(nuevoRegistro);
-      }
-
-      localStorage.setItem("datosCamiones", JSON.stringify(datosCamiones));
-      alert("¡Guardado correctamente!");
-      poblarSelect(datosCamiones);
-      limpiarFormulario();
-    }
-
-    function borrarRegistro() {
-      if (registroSeleccionadoId === null) {
-        alert("Primero busca y selecciona un conductor para poder borrarlo.");
-        return;
-      }
-
-      const conductorNombre = document.getElementById("conductor").value;
-      if (confirm(`¿Estás seguro de eliminar a: ${conductorNombre}?`)) {
-        datosCamiones = datosCamiones.filter(item => item.id !== registroSeleccionadoId);
-        datosCamiones = datosCamiones.map((item, index) => ({ ...item, id: index + 1 }));
-
-        localStorage.setItem("datosCamiones", JSON.stringify(datosCamiones));
-        alert("Registro eliminado.");
-        poblarSelect(datosCamiones);
-        limpiarFormulario();
-      }
-    }
-
-    function limpiarFormulario() {
-      document.getElementById("buscador").value = "";
-      limpiarFormularioSinBuscador();
-      poblarSelect(datosCamiones);
-    }
-
-    function limpiarFormularioSinBuscador() {
-      registroSeleccionadoId = null;
-      document.getElementById("formCamion").reset();
-      document.getElementById("selectConductor").value = "";
-      document.getElementById("ninguno").checked = true;
-    }
-
-    async function exportarExcelEstilizado() {
-      if (datosCamiones.length === 0) {
-        alert("No hay registros guardados para exportar.");
-        return;
-      }
-
-      const workbook = new ExcelJS.Workbook();
-      const worksheet = workbook.addWorksheet("Operativa Camiones");
-
-      // 1. Título principal del reporte
-      worksheet.mergeCells('A1:N1');
-      const tituloCell = worksheet.getCell('A1');
-      tituloCell.value = "OPERATIVA DE CAMIONES";
-      tituloCell.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFFFF' } };
-      tituloCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '1F4E78' } };
-      tituloCell.alignment = { vertical: 'middle', horizontal: 'center' };
-      worksheet.getRow(1).height = 30;
-
-      // 2. Encabezados de columnas
-      const columnas = [
-        { header: "CONDUCTOR", key: "conductor", width: 28 },
-        { header: "PLACA", key: "placa", width: 14 },
-        { header: "LICENCIA", key: "licencia", width: 14 },
-        { header: "EXP", key: "exp", width: 8 },
-        { header: "TEL", key: "tel", width: 14 },
-        { header: "EMPRESA", key: "empresa", width: 16 },
-        { header: "PRECINTO", key: "precinto", width: 16 },
-        { header: "CONTENEDOR", key: "contenedor", width: 16 },
-        { header: "PESO TARA", key: "tara", width: 14 },
-        { header: "PESO NETO", key: "neto", width: 14 },
-        { header: "PESO BRUTO", key: "bruto", width: 14 },
-        { header: "LLEGÓ", key: "llego", width: 14 },
-        { header: "NO LLEGÓ", key: "noLlego", width: 14 },
-        { header: "OBSERVACIONES", key: "observaciones", width: 38 }
-      ];
-
-      const headerRow = worksheet.getRow(3);
-      columnas.forEach((col, index) => {
-        const cell = headerRow.getCell(index + 1);
-        cell.value = col.header;
-        cell.font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FFFFFF' } };
-        cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: '2F5597' } };
-        cell.alignment = { vertical: 'middle', horizontal: 'center' };
-      });
-      headerRow.height = 24;
-
-      const thinBorder = {
-        top: { style: 'thin', color: { argb: 'D9D9D9' } },
-        left: { style: 'thin', color: { argb: 'D9D9D9' } },
-        bottom: { style: 'thin', color: { argb: 'D9D9D9' } },
-        right: { style: 'thin', color: { argb: 'D9D9D9' } }
-      };
-
-      // 3. Insertar los datos con la fórmula de Excel en Peso Neto (= K - I)
-      datosCamiones.forEach((item, rowIndex) => {
-        const currentRow = rowIndex + 4;
-        const row = worksheet.getRow(currentRow);
-        const llegoTexto = item.estado === "LLEGO" ? "CONFIRMADO" : "";
-        const noLlegoTexto = item.estado === "NO LLEGO" ? "PENDIENTE" : "";
-
-        const taraNum = item.tara ? parseFloat(item.tara) : "";
-        const brutoNum = item.bruto ? parseFloat(item.bruto) : "";
-
-        row.getCell(1).value = item.conductor || "";
-        row.getCell(2).value = item.placa || "";
-        row.getCell(3).value = item.licencia || "";
-        row.getCell(4).value = item.exp || "";
-        row.getCell(5).value = item.tel || "";
-        row.getCell(6).value = item.empresa || "";
-        row.getCell(7).value = item.precinto || "";
-        row.getCell(8).value = item.contenedor || "";
-        
-        // Pesos
-        row.getCell(9).value = taraNum;
-        row.getCell(10).value = { formula: `K${currentRow}-I${currentRow}` }; // Fórmula Excel: Bruto - Tara
-        row.getCell(11).value = brutoNum;
-
-        // Estados
-        row.getCell(12).value = llegoTexto;
-        row.getCell(13).value = noLlegoTexto;
-        row.getCell(14).value = item.observaciones || "";
-
-        for (let c = 1; c <= 14; c++) {
-          const cell = row.getCell(c);
-          cell.border = thinBorder;
-          cell.font = { name: 'Arial', size: 9 };
-
-          if (c >= 9 && c <= 11) {
-            cell.numFmt = '#,##0.00';
-            cell.alignment = { vertical: 'middle', horizontal: 'right' };
-          } else if (c === 1 || c === 14) {
-            cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
-          } else {
-            cell.alignment = { vertical: 'middle', horizontal: 'center' };
-          }
-
-          if (c === 10) {
-            cell.font = { name: 'Arial', size: 9, bold: true };
-          }
-
-          if (c === 12 && llegoTexto === "CONFIRMADO") {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'E2EFDA' } };
-            cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: '375623' } };
-          }
-          if (c === 13 && noLlegoTexto === "PENDIENTE") {
-            cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FCE4D6' } };
-            cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'C65911' } };
-          }
-        }
-
-        row.height = 24;
-      });
-
-      columnas.forEach((col, i) => {
-        worksheet.getColumn(i + 1).width = col.width;
-      });
-
-      const buffer = await workbook.xlsx.writeBuffer();
-      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = "OPERATIVA_DE_CAMIONES.xlsx";
-      link.click();
-    }
-
-    poblarSelect(datosCamiones);
-  </script>
+  <!-- Enlace al módulo de Firebase -->
+  <script type="module" src="app.js"></script>
 </body>
 </html>
