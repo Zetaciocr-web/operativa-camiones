@@ -59,20 +59,28 @@ async function cargarDesdeFirebase() {
 
 // Calcular peso neto automáticamente
 function calcularPesoNeto() {
-  const tara = parseFloat(document.getElementById("tara").value) || 0;
-  const bruto = parseFloat(document.getElementById("bruto").value) || 0;
+  const taraElem = document.getElementById("tara");
+  const brutoElem = document.getElementById("bruto");
+  const netoElem = document.getElementById("neto");
+
+  if (!taraElem || !brutoElem || !netoElem) return;
+
+  const tara = parseFloat(taraElem.value) || 0;
+  const bruto = parseFloat(brutoElem.value) || 0;
   
-  if (document.getElementById("bruto").value !== "" || document.getElementById("tara").value !== "") {
+  if (brutoElem.value !== "" || taraElem.value !== "") {
     const neto = bruto - tara;
-    document.getElementById("neto").value = neto >= 0 ? neto.toFixed(2) : "0.00";
+    netoElem.value = neto >= 0 ? neto.toFixed(2) : "0.00";
   } else {
-    document.getElementById("neto").value = "";
+    netoElem.value = "";
   }
 }
 
 // Poblar el menú desplegable con registros
 function poblarSelect(lista) {
   const select = document.getElementById("selectConductor");
+  if (!select) return;
+
   if (lista.length === 0) {
     select.innerHTML = '<option value="">-- Sin registros guardados --</option>';
     return;
@@ -85,7 +93,10 @@ function poblarSelect(lista) {
 
 // Buscar registros en tiempo real por conductor, placa, licencia, etc.
 function buscarEnTiempoReal() {
-  const texto = document.getElementById("buscador").value.toLowerCase().trim();
+  const buscador = document.getElementById("buscador");
+  if (!buscador) return;
+
+  const texto = buscador.value.toLowerCase().trim();
   if (!texto) {
     poblarSelect(datosCamiones);
     return;
@@ -102,8 +113,9 @@ function buscarEnTiempoReal() {
 
   poblarSelect(filtrados);
 
-  if (filtrados.length > 0) {
-    document.getElementById("selectConductor").value = filtrados[0].idFirestore;
+  const selectConductor = document.getElementById("selectConductor");
+  if (filtrados.length > 0 && selectConductor) {
+    selectConductor.value = filtrados[0].idFirestore;
     cargarCamionEnFormulario(filtrados[0]);
   } else {
     limpiarFormularioSinBuscador();
@@ -112,7 +124,10 @@ function buscarEnTiempoReal() {
 
 // Cargar datos en el formulario al seleccionar del desplegable
 function cargarDatosDesdeSelect() {
-  const id = document.getElementById("selectConductor").value;
+  const selectConductor = document.getElementById("selectConductor");
+  if (!selectConductor) return;
+
+  const id = selectConductor.value;
   if (id === "") {
     limpiarFormularioSinBuscador();
     return;
@@ -137,41 +152,52 @@ function cargarCamionEnFormulario(c) {
   document.getElementById("neto").value = c.neto || "";
   document.getElementById("observaciones").value = c.observaciones || "";
   
-  document.getElementById("llego").checked = (c.estado === "LLEGO");
-  document.getElementById("noLlego").checked = (c.estado === "NO LLEGO");
-  document.getElementById("ninguno").checked = (!c.estado || c.estado === "");
+  const llegoRadio = document.getElementById("llego");
+  const noLlegoRadio = document.getElementById("noLlego");
+  const ningunoRadio = document.getElementById("ninguno");
+
+  if (llegoRadio) llegoRadio.checked = (c.estado === "LLEGO");
+  if (noLlegoRadio) noLlegoRadio.checked = (c.estado === "NO LLEGO");
+  if (ningunoRadio) ningunoRadio.checked = (!c.estado || c.estado === "");
 
   calcularPesoNeto();
 }
 
 // Guardar o actualizar registro en Firebase
 async function guardarRegistro() {
-  const conductor = document.getElementById("conductor").value.trim();
+  const conductorInput = document.getElementById("conductor");
+  const conductor = conductorInput ? conductorInput.value.trim() : "";
+  
   if (!conductor) {
     alert("Por favor ingresa al menos el nombre del CONDUCTOR.");
     return;
   }
 
   let estadoSeleccionado = "";
-  if (document.getElementById("llego").checked) estadoSeleccionado = "LLEGO";
-  else if (document.getElementById("noLlego").checked) estadoSeleccionado = "NO LLEGO";
+  const llego = document.getElementById("llego");
+  const noLlego = document.getElementById("noLlego");
+
+  if (llego && llego.checked) estadoSeleccionado = "LLEGO";
+  else if (noLlego && noLlego.checked) estadoSeleccionado = "NO LLEGO";
 
   calcularPesoNeto();
 
+  // Se sanitizan todos los valores para no enviar undefined
   const nuevoRegistro = {
     conductor: conductor,
-    placa: document.getElementById("placa").value,
-    licencia: document.getElementById("licencia").value,
-    exp: document.getElementById("exp").value,
-    tel: document.getElementById("tel").value,
-    empresa: document.getElementById("empresa").value,
-    precinto: document.getElementById("precinto").value,
-    contenedor: document.getElementById("contenedor").value,
-    tara: document.getElementById("tara").value,
-    neto: document.getElementById("neto").value,
-    bruto: document.getElementById("bruto").value,
+    placa: document.getElementById("placa")?.value || "",
+    licencia: document.getElementById("licencia")?.value || "",
+    exp: document.getElementById("exp")?.value || "",
+    tel: document.getElementById("tel")?.value || "",
+    empresa: document.getElementById("empresa")?.value || "",
+    precinto: document.getElementById("precinto")?.value || "",
+    contenedor: document.getElementById("contenedor")?.value || "",
+    tara: document.getElementById("tara")?.value || "",
+    neto: document.getElementById("neto")?.value || "",
+    bruto: document.getElementById("bruto")?.value || "",
     estado: estadoSeleccionado,
-    observaciones: document.getElementById("observaciones").value
+    observaciones: document.getElementById("observaciones")?.value || "",
+    fechaActualización: new Date().toISOString()
   };
 
   try {
@@ -186,8 +212,8 @@ async function guardarRegistro() {
     await cargarDesdeFirebase();
     limpiarFormulario();
   } catch (error) {
-    console.error("Error al guardar en Firebase:", error);
-    alert("Ocurrió un error al guardar en la nube.");
+    console.error("Error detallado al guardar en Firebase:", error);
+    alert("Ocurrió un error al guardar: " + error.message);
   }
 }
 
@@ -198,7 +224,7 @@ async function borrarRegistro() {
     return;
   }
 
-  const conductorNombre = document.getElementById("conductor").value;
+  const conductorNombre = document.getElementById("conductor")?.value || "";
   if (confirm(`¿Estás seguro de eliminar a: ${conductorNombre}?`)) {
     try {
       const docRef = doc(db, "camiones", registroSeleccionadoId);
@@ -215,16 +241,22 @@ async function borrarRegistro() {
 
 // Limpiar formulario y buscador
 function limpiarFormulario() {
-  document.getElementById("buscador").value = "";
+  const buscador = document.getElementById("buscador");
+  if (buscador) buscador.value = "";
   limpiarFormularioSinBuscador();
   poblarSelect(datosCamiones);
 }
 
 function limpiarFormularioSinBuscador() {
   registroSeleccionadoId = null;
-  document.getElementById("formCamion").reset();
-  document.getElementById("selectConductor").value = "";
-  document.getElementById("ninguno").checked = true;
+  const form = document.getElementById("formCamion");
+  if (form) form.reset();
+
+  const select = document.getElementById("selectConductor");
+  if (select) select.value = "";
+
+  const ninguno = document.getElementById("ninguno");
+  if (ninguno) ninguno.checked = true;
 }
 
 // Exportar a Excel estilizado usando ExcelJS
@@ -352,15 +384,21 @@ async function exportarExcelEstilizado() {
   link.click();
 }
 
-// Event Listeners
-document.addEventListener("DOMContentLoaded", () => {
-  document.getElementById("tara").addEventListener("input", calcularPesoNeto);
-  document.getElementById("bruto").addEventListener("input", calcularPesoNeto);
-  document.getElementById("buscador").addEventListener("input", buscarEnTiempoReal);
-  document.getElementById("selectConductor").addEventListener("change", cargarDatosDesdeSelect);
+// Inicialización de Listeners segura
+function inicializarListeners() {
+  document.getElementById("tara")?.addEventListener("input", calcularPesoNeto);
+  document.getElementById("bruto")?.addEventListener("input", calcularPesoNeto);
+  document.getElementById("buscador")?.addEventListener("input", buscarEnTiempoReal);
+  document.getElementById("selectConductor")?.addEventListener("change", cargarDatosDesdeSelect);
 
-  document.getElementById("btnGuardar").addEventListener("click", guardarRegistro);
-  document.getElementById("btnLimpiar").addEventListener("click", limpiarFormulario);
-  document.getElementById("btnBorrar").addEventListener("click", borrarRegistro);
-  document.getElementById("btnExportar").addEventListener("click", exportarExcelEstilizado);
-});
+  document.getElementById("btnGuardar")?.addEventListener("click", guardarRegistro);
+  document.getElementById("btnLimpiar")?.addEventListener("click", limpiarFormulario);
+  document.getElementById("btnBorrar")?.addEventListener("click", borrarRegistro);
+  document.getElementById("btnExportar")?.addEventListener("click", exportarExcelEstilizado);
+}
+
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", inicializarListeners);
+} else {
+  inicializarListeners();
+}
