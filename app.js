@@ -33,17 +33,19 @@ const coleccionCamiones = collection(db, "camiones");
 let datosCamiones = [];
 let registroSeleccionadoId = null;
 
-// Iniciar sesión anónima en segundo plano de forma automática e invisible
+// Cargar registros de inmediato al abrir la aplicación
+cargarDesdeFirebase();
+
+// Autenticación anónima y listener de sesión
 signInAnonymously(auth).catch((error) => console.error("Error al autenticar:", error));
 
-// Cargar registros una vez que la sesión esté lista
 onAuthStateChanged(auth, (user) => {
   if (user) {
     cargarDesdeFirebase();
   }
 });
 
-// Cargar registros desde Firebase Firestore
+// 1. Cargar registros desde Firestore
 async function cargarDesdeFirebase() {
   try {
     const querySnapshot = await getDocs(coleccionCamiones);
@@ -57,7 +59,7 @@ async function cargarDesdeFirebase() {
   }
 }
 
-// Calcular peso neto automáticamente
+// 2. Calcular peso neto automáticamente en el cliente
 function calcularPesoNeto() {
   const taraElem = document.getElementById("tara");
   const brutoElem = document.getElementById("bruto");
@@ -76,7 +78,7 @@ function calcularPesoNeto() {
   }
 }
 
-// Poblar el menú desplegable con registros
+// 3. Llenar el select con los registros
 function poblarSelect(lista) {
   const select = document.getElementById("selectConductor");
   if (!select) return;
@@ -91,7 +93,7 @@ function poblarSelect(lista) {
   });
 }
 
-// Buscar registros en tiempo real por conductor, placa, licencia, etc.
+// 4. Buscar registros en tiempo real
 function buscarEnTiempoReal() {
   const buscador = document.getElementById("buscador");
   if (!buscador) return;
@@ -122,7 +124,7 @@ function buscarEnTiempoReal() {
   }
 }
 
-// Cargar datos en el formulario al seleccionar del desplegable
+// 5. Cargar datos del select al formulario
 function cargarDatosDesdeSelect() {
   const selectConductor = document.getElementById("selectConductor");
   if (!selectConductor) return;
@@ -136,7 +138,7 @@ function cargarDatosDesdeSelect() {
   if (c) cargarCamionEnFormulario(c);
 }
 
-// Cargar un objeto camion a los inputs del HTML
+// 6. Rellenar los inputs con el objeto seleccionado
 function cargarCamionEnFormulario(c) {
   registroSeleccionadoId = c.idFirestore;
   document.getElementById("conductor").value = c.conductor || "";
@@ -163,7 +165,7 @@ function cargarCamionEnFormulario(c) {
   calcularPesoNeto();
 }
 
-// Guardar o actualizar registro en Firebase
+// 7. Guardar o actualizar registro en Firestore
 async function guardarRegistro() {
   const conductorInput = document.getElementById("conductor");
   const conductor = conductorInput ? conductorInput.value.trim() : "";
@@ -182,7 +184,6 @@ async function guardarRegistro() {
 
   calcularPesoNeto();
 
-  // Se sanitizan todos los valores para no enviar undefined
   const nuevoRegistro = {
     conductor: conductor,
     placa: document.getElementById("placa")?.value || "",
@@ -212,12 +213,12 @@ async function guardarRegistro() {
     await cargarDesdeFirebase();
     limpiarFormulario();
   } catch (error) {
-    console.error("Error detallado al guardar en Firebase:", error);
+    console.error("Error al guardar en Firebase:", error);
     alert("Ocurrió un error al guardar: " + error.message);
   }
 }
 
-// Borrar registro en Firebase
+// 8. Eliminar registro en Firestore
 async function borrarRegistro() {
   if (registroSeleccionadoId === null) {
     alert("Primero busca y selecciona un conductor para poder borrarlo.");
@@ -239,7 +240,7 @@ async function borrarRegistro() {
   }
 }
 
-// Limpiar formulario y buscador
+// 9. Limpiar formularios
 function limpiarFormulario() {
   const buscador = document.getElementById("buscador");
   if (buscador) buscador.value = "";
@@ -259,7 +260,7 @@ function limpiarFormularioSinBuscador() {
   if (ninguno) ninguno.checked = true;
 }
 
-// Exportar a Excel estilizado usando ExcelJS
+// 10. Exportar a Excel con ExcelJS manteniendo fórmulas y estilos
 async function exportarExcelEstilizado() {
   if (datosCamiones.length === 0) {
     alert("No hay registros guardados para exportar.");
@@ -269,7 +270,7 @@ async function exportarExcelEstilizado() {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet("Operativa Camiones");
 
-  // Título Principal
+  // Encabezado principal
   worksheet.mergeCells('A1:N1');
   const tituloCell = worksheet.getCell('A1');
   tituloCell.value = "OPERATIVA DE CAMIONES";
@@ -278,7 +279,7 @@ async function exportarExcelEstilizado() {
   tituloCell.alignment = { vertical: 'middle', horizontal: 'center' };
   worksheet.getRow(1).height = 30;
 
-  // Cabeceras de tabla
+  // Encabezados de tabla
   const columnas = [
     { header: "CONDUCTOR", key: "conductor", width: 28 },
     { header: "PLACA", key: "placa", width: 14 },
@@ -313,15 +314,16 @@ async function exportarExcelEstilizado() {
     right: { style: 'thin', color: { argb: 'D9D9D9' } }
   };
 
-  // Datos
+  // Iterar y escribir cada registro
   datosCamiones.forEach((item, rowIndex) => {
     const currentRow = rowIndex + 4;
     const row = worksheet.getRow(currentRow);
     const llegoTexto = item.estado === "LLEGO" ? "CONFIRMADO" : "";
     const noLlegoTexto = item.estado === "NO LLEGO" ? "PENDIENTE" : "";
 
-    const taraNum = item.tara ? parseFloat(item.tara) : "";
-    const brutoNum = item.bruto ? parseFloat(item.bruto) : "";
+    // Validación para evitar fallos de cálculo si un peso queda en blanco
+    const taraNum = (item.tara !== "" && item.tara !== null && item.tara !== undefined) ? parseFloat(item.tara) : 0;
+    const brutoNum = (item.bruto !== "" && item.bruto !== null && item.bruto !== undefined) ? parseFloat(item.bruto) : 0;
 
     row.getCell(1).value = item.conductor || "";
     row.getCell(2).value = item.placa || "";
@@ -333,7 +335,10 @@ async function exportarExcelEstilizado() {
     row.getCell(8).value = item.contenedor || "";
     
     row.getCell(9).value = taraNum;
-    row.getCell(10).value = { formula: `K${currentRow}-I${currentRow}` };
+    
+    // Fórmula que descuenta Peso Tara (Col I) de Peso Bruto (Col K) de forma segura
+    row.getCell(10).value = { formula: `IFERROR(K${currentRow}-I${currentRow}, 0)` };
+
     row.getCell(11).value = brutoNum;
 
     row.getCell(12).value = llegoTexto;
@@ -375,7 +380,7 @@ async function exportarExcelEstilizado() {
     worksheet.getColumn(i + 1).width = col.width;
   });
 
-  // Generar y descargar archivo
+  // Generar y descargar el archivo final de Excel
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
   const link = document.createElement("a");
@@ -384,7 +389,7 @@ async function exportarExcelEstilizado() {
   link.click();
 }
 
-// Inicialización de Listeners segura
+// 11. Asignación de Listeners DOM al cargar la página
 function inicializarListeners() {
   document.getElementById("tara")?.addEventListener("input", calcularPesoNeto);
   document.getElementById("bruto")?.addEventListener("input", calcularPesoNeto);
