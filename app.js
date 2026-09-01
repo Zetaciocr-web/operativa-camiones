@@ -1,62 +1,97 @@
-import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { 
+  getAuth, 
+  signInAnonymously, 
+  onAuthStateChanged 
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { 
+  getFirestore, 
+  collection, 
+  getDocs, 
+  addDoc, 
+  doc, 
+  updateDoc, 
+  deleteDoc 
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// Configuración de Supabase
-const supabaseUrl = "https://operativa-camiones.supabase.co"; // Reemplaza con tu URL de Supabase si es distinta
-const supabaseKey = "TU_SUPABASE_ANON_KEY"; // Pega aquí tu clave anon public de Supabase
+// Configuración de Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyDZQ7AK_a4__wJEbD-Eay2AQ6uT4dI21LA",
+  authDomain: "operativa-camiones.firebaseapp.com",
+  projectId: "operativa-camiones",
+  storageBucket: "operativa-camiones.firebasestorage.app",
+  messagingSenderId: "401625540838",
+  appId: "1:401625540838:web:9c1db7a1adabea1697327"
+};
 
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Inicializar Firebase, Autenticación y Firestore
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+const coleccionCamiones = collection(db, "camiones");
 
 let datosCamiones = [];
 let registroSeleccionadoId = null;
 
-// Cargar registros inmediatamente al iniciar
-cargarDesdeSupabase();
+// Iniciar sesión anónima en segundo plano de forma automática e invisible
+signInAnonymously(auth).catch((error) => console.error("Error al autenticar:", error));
 
-// 1. Cargar registros desde la tabla de Supabase
-async function cargarDesdeSupabase() {
+// Cargar registros una vez que la sesión esté lista
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    cargarDesdeFirebase();
+  }
+});
+
+// Cargar registros desde Firebase Firestore
+async function cargarDesdeFirebase() {
   try {
-    const { data, error } = await supabase
-      .from("camiones")
-      .select("*");
-
-    if (error) throw error;
-
-    datosCamiones = data || [];
+    const querySnapshot = await getDocs(coleccionCamiones);
+    datosCamiones = [];
+    querySnapshot.forEach((docSnap) => {
+      datosCamiones.push({ idFirestore: docSnap.id, ...docSnap.data() });
+    });
     poblarSelect(datosCamiones);
   } catch (error) {
-    console.error("Error al obtener datos de Supabase:", error);
-    // Intentar consultar en singular por si la tabla se llama 'camion'
-    try {
-      const { data: dataSingular } = await supabase.from("camion").select("*");
-      if (dataSingular) {
-        datosCamiones = dataSingular;
-        poblarSelect(datosCamiones);
-      }
-    } catch (e) {
-      console.error(e);
-    }
+    console.error("Error al obtener datos de Firebase:", error);
   }
 }
 
-// 2. Llenar el select con los datos
+// Calcular peso neto automáticamente
+function calcularPesoNeto() {
+  const taraElem = document.getElementById("tara");
+  const brutoElem = document.getElementById("bruto");
+  const netoElem = document.getElementById("neto");
+
+  if (!taraElem || !brutoElem || !netoElem) return;
+
+  const tara = parseFloat(taraElem.value) || 0;
+  const bruto = parseFloat(brutoElem.value) || 0;
+  
+  if (brutoElem.value !== "" || taraElem.value !== "") {
+    const neto = bruto - tara;
+    netoElem.value = neto >= 0 ? neto.toFixed(2) : "0.00";
+  } else {
+    netoElem.value = "";
+  }
+}
+
+// Poblar el menú desplegable con registros
 function poblarSelect(lista) {
-  const select = document.getElementById("selectConductor") || document.getElementById("selectRegistros");
+  const select = document.getElementById("selectConductor");
   if (!select) return;
 
   if (lista.length === 0) {
     select.innerHTML = '<option value="">-- Sin registros guardados --</option>';
     return;
   }
-  
   select.innerHTML = '<option value="">-- Seleccionar de los registros --</option>';
   lista.forEach(item => {
-    const nombreConductor = item.conductor || item.nombre || "Sin nombre";
-    const placaCamion = item.placa ? ` (${item.placa})` : "";
-    select.innerHTML += `<option value="${item.id}">${nombreConductor}${placaCamion}</option>`;
+    select.innerHTML += `<option value="${item.idFirestore}">${item.conductor} (${item.placa || 'Sin placa'})</option>`;
   });
 }
 
-// 3. Buscar en tiempo real
+// Buscar registros en tiempo real por conductor, placa, licencia, etc.
 function buscarEnTiempoReal() {
   const buscador = document.getElementById("buscador");
   if (!buscador) return;
@@ -69,7 +104,6 @@ function buscarEnTiempoReal() {
 
   const filtrados = datosCamiones.filter(c => 
     (c.conductor && c.conductor.toLowerCase().includes(texto)) ||
-    (c.nombre && c.nombre.toLowerCase().includes(texto)) ||
     (c.placa && c.placa.toLowerCase().includes(texto)) ||
     (c.licencia && c.licencia.toLowerCase().includes(texto)) ||
     (c.tel && c.tel.toLowerCase().includes(texto)) ||
@@ -79,33 +113,33 @@ function buscarEnTiempoReal() {
 
   poblarSelect(filtrados);
 
-  const select = document.getElementById("selectConductor") || document.getElementById("selectRegistros");
-  if (filtrados.length > 0 && select) {
-    select.value = filtrados[0].id;
+  const selectConductor = document.getElementById("selectConductor");
+  if (filtrados.length > 0 && selectConductor) {
+    selectConductor.value = filtrados[0].idFirestore;
     cargarCamionEnFormulario(filtrados[0]);
   } else {
     limpiarFormularioSinBuscador();
   }
 }
 
-// 4. Cargar datos del registro seleccionado
+// Cargar datos en el formulario al seleccionar del desplegable
 function cargarDatosDesdeSelect() {
-  const select = document.getElementById("selectConductor") || document.getElementById("selectRegistros");
-  if (!select) return;
+  const selectConductor = document.getElementById("selectConductor");
+  if (!selectConductor) return;
 
-  const id = select.value;
+  const id = selectConductor.value;
   if (id === "") {
     limpiarFormularioSinBuscador();
     return;
   }
-  const c = datosCamiones.find(item => String(item.id) === String(id));
+  const c = datosCamiones.find(item => item.idFirestore === id);
   if (c) cargarCamionEnFormulario(c);
 }
 
-// 5. Rellenar campos del formulario
+// Cargar un objeto camion a los inputs del HTML
 function cargarCamionEnFormulario(c) {
-  registroSeleccionadoId = c.id;
-  document.getElementById("conductor").value = c.conductor || c.nombre || "";
+  registroSeleccionadoId = c.idFirestore;
+  document.getElementById("conductor").value = c.conductor || "";
   document.getElementById("placa").value = c.placa || "";
   document.getElementById("licencia").value = c.licencia || "";
   document.getElementById("exp").value = c.exp || "";
@@ -129,26 +163,7 @@ function cargarCamionEnFormulario(c) {
   calcularPesoNeto();
 }
 
-// 6. Cálculo peso neto
-function calcularPesoNeto() {
-  const taraElem = document.getElementById("tara");
-  const brutoElem = document.getElementById("bruto");
-  const netoElem = document.getElementById("neto");
-
-  if (!taraElem || !brutoElem || !netoElem) return;
-
-  const tara = parseFloat(taraElem.value) || 0;
-  const bruto = parseFloat(brutoElem.value) || 0;
-  
-  if (brutoElem.value !== "" || taraElem.value !== "") {
-    const neto = bruto - tara;
-    netoElem.value = neto >= 0 ? neto.toFixed(2) : "0.00";
-  } else {
-    netoElem.value = "";
-  }
-}
-
-// 7. Guardar o actualizar registro en Supabase
+// Guardar o actualizar registro en Firebase
 async function guardarRegistro() {
   const conductorInput = document.getElementById("conductor");
   const conductor = conductorInput ? conductorInput.value.trim() : "";
@@ -167,7 +182,8 @@ async function guardarRegistro() {
 
   calcularPesoNeto();
 
-  const registroData = {
+  // Se sanitizan todos los valores para no enviar undefined
+  const nuevoRegistro = {
     conductor: conductor,
     placa: document.getElementById("placa")?.value || "",
     licencia: document.getElementById("licencia")?.value || "",
@@ -176,66 +192,54 @@ async function guardarRegistro() {
     empresa: document.getElementById("empresa")?.value || "",
     precinto: document.getElementById("precinto")?.value || "",
     contenedor: document.getElementById("contenedor")?.value || "",
-    tara: document.getElementById("tara")?.value || null,
-    neto: document.getElementById("neto")?.value || null,
-    bruto: document.getElementById("bruto")?.value || null,
+    tara: document.getElementById("tara")?.value || "",
+    neto: document.getElementById("neto")?.value || "",
+    bruto: document.getElementById("bruto")?.value || "",
     estado: estadoSeleccionado,
-    observaciones: document.getElementById("observaciones")?.value || ""
+    observaciones: document.getElementById("observaciones")?.value || "",
+    fechaActualización: new Date().toISOString()
   };
 
   try {
     if (registroSeleccionadoId !== null) {
-      const { error } = await supabase
-        .from("camiones")
-        .update(registroData)
-        .eq("id", registroSeleccionadoId);
-
-      if (error) throw error;
-      alert("¡Registro actualizado en Supabase!");
+      const docRef = doc(db, "camiones", registroSeleccionadoId);
+      await updateDoc(docRef, nuevoRegistro);
+      alert("¡Registro actualizado en Firebase!");
     } else {
-      const { error } = await supabase
-        .from("camiones")
-        .insert([registroData]);
-
-      if (error) throw error;
-      alert("¡Registro guardado en Supabase!");
+      await addDoc(coleccionCamiones, nuevoRegistro);
+      alert("¡Registro guardado en Firebase!");
     }
-
-    await cargarDesdeSupabase();
+    await cargarDesdeFirebase();
     limpiarFormulario();
   } catch (error) {
-    console.error("Error al guardar:", error);
+    console.error("Error detallado al guardar en Firebase:", error);
     alert("Ocurrió un error al guardar: " + error.message);
   }
 }
 
-// 8. Eliminar registro en Supabase
+// Borrar registro en Firebase
 async function borrarRegistro() {
   if (registroSeleccionadoId === null) {
-    alert("Primero selecciona un registro para poder borrarlo.");
+    alert("Primero busca y selecciona un conductor para poder borrarlo.");
     return;
   }
 
   const conductorNombre = document.getElementById("conductor")?.value || "";
   if (confirm(`¿Estás seguro de eliminar a: ${conductorNombre}?`)) {
     try {
-      const { error } = await supabase
-        .from("camiones")
-        .delete()
-        .eq("id", registroSeleccionadoId);
-
-      if (error) throw error;
-      alert("Registro eliminado de Supabase.");
-      await cargarDesdeSupabase();
+      const docRef = doc(db, "camiones", registroSeleccionadoId);
+      await deleteDoc(docRef);
+      alert("Registro eliminado de Firebase.");
+      await cargarDesdeFirebase();
       limpiarFormulario();
     } catch (error) {
-      console.error("Error al borrar:", error);
+      console.error("Error al borrar en Firebase:", error);
       alert("Ocurrió un error al intentar eliminar el registro.");
     }
   }
 }
 
-// 9. Limpiar formulario
+// Limpiar formulario y buscador
 function limpiarFormulario() {
   const buscador = document.getElementById("buscador");
   if (buscador) buscador.value = "";
@@ -248,14 +252,14 @@ function limpiarFormularioSinBuscador() {
   const form = document.getElementById("formCamion");
   if (form) form.reset();
 
-  const select = document.getElementById("selectConductor") || document.getElementById("selectRegistros");
+  const select = document.getElementById("selectConductor");
   if (select) select.value = "";
 
   const ninguno = document.getElementById("ninguno");
   if (ninguno) ninguno.checked = true;
 }
 
-// 10. Exportar a Excel
+// Exportar a Excel estilizado usando ExcelJS
 async function exportarExcelEstilizado() {
   if (datosCamiones.length === 0) {
     alert("No hay registros guardados para exportar.");
@@ -265,6 +269,7 @@ async function exportarExcelEstilizado() {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet("Operativa Camiones");
 
+  // Título Principal
   worksheet.mergeCells('A1:N1');
   const tituloCell = worksheet.getCell('A1');
   tituloCell.value = "OPERATIVA DE CAMIONES";
@@ -273,6 +278,7 @@ async function exportarExcelEstilizado() {
   tituloCell.alignment = { vertical: 'middle', horizontal: 'center' };
   worksheet.getRow(1).height = 30;
 
+  // Cabeceras de tabla
   const columnas = [
     { header: "CONDUCTOR", key: "conductor", width: 28 },
     { header: "PLACA", key: "placa", width: 14 },
@@ -307,16 +313,17 @@ async function exportarExcelEstilizado() {
     right: { style: 'thin', color: { argb: 'D9D9D9' } }
   };
 
+  // Datos
   datosCamiones.forEach((item, rowIndex) => {
     const currentRow = rowIndex + 4;
     const row = worksheet.getRow(currentRow);
     const llegoTexto = item.estado === "LLEGO" ? "CONFIRMADO" : "";
     const noLlegoTexto = item.estado === "NO LLEGO" ? "PENDIENTE" : "";
 
-    const taraNum = (item.tara !== "" && item.tara !== null) ? parseFloat(item.tara) : 0;
-    const brutoNum = (item.bruto !== "" && item.bruto !== null) ? parseFloat(item.bruto) : 0;
+    const taraNum = item.tara ? parseFloat(item.tara) : "";
+    const brutoNum = item.bruto ? parseFloat(item.bruto) : "";
 
-    row.getCell(1).value = item.conductor || item.nombre || "";
+    row.getCell(1).value = item.conductor || "";
     row.getCell(2).value = item.placa || "";
     row.getCell(3).value = item.licencia || "";
     row.getCell(4).value = item.exp || "";
@@ -324,9 +331,11 @@ async function exportarExcelEstilizado() {
     row.getCell(6).value = item.empresa || "";
     row.getCell(7).value = item.precinto || "";
     row.getCell(8).value = item.contenedor || "";
+    
     row.getCell(9).value = taraNum;
-    row.getCell(10).value = { formula: `IFERROR(K${currentRow}-I${currentRow}, 0)` };
+    row.getCell(10).value = { formula: `K${currentRow}-I${currentRow}` };
     row.getCell(11).value = brutoNum;
+
     row.getCell(12).value = llegoTexto;
     row.getCell(13).value = noLlegoTexto;
     row.getCell(14).value = item.observaciones || "";
@@ -345,7 +354,9 @@ async function exportarExcelEstilizado() {
         cell.alignment = { vertical: 'middle', horizontal: 'center' };
       }
 
-      if (c === 10) cell.font = { name: 'Arial', size: 9, bold: true };
+      if (c === 10) {
+        cell.font = { name: 'Arial', size: 9, bold: true };
+      }
 
       if (c === 12 && llegoTexto === "CONFIRMADO") {
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'E2EFDA' } };
@@ -356,6 +367,7 @@ async function exportarExcelEstilizado() {
         cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'C65911' } };
       }
     }
+
     row.height = 24;
   });
 
@@ -363,6 +375,7 @@ async function exportarExcelEstilizado() {
     worksheet.getColumn(i + 1).width = col.width;
   });
 
+  // Generar y descargar archivo
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
   const link = document.createElement("a");
@@ -371,14 +384,12 @@ async function exportarExcelEstilizado() {
   link.click();
 }
 
-// 11. Event Listeners
+// Inicialización de Listeners segura
 function inicializarListeners() {
   document.getElementById("tara")?.addEventListener("input", calcularPesoNeto);
   document.getElementById("bruto")?.addEventListener("input", calcularPesoNeto);
   document.getElementById("buscador")?.addEventListener("input", buscarEnTiempoReal);
-  
-  const select = document.getElementById("selectConductor") || document.getElementById("selectRegistros");
-  select?.addEventListener("change", cargarDatosDesdeSelect);
+  document.getElementById("selectConductor")?.addEventListener("change", cargarDatosDesdeSelect);
 
   document.getElementById("btnGuardar")?.addEventListener("click", guardarRegistro);
   document.getElementById("btnLimpiar")?.addEventListener("click", limpiarFormulario);
