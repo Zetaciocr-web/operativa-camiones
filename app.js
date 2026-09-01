@@ -51,7 +51,19 @@ async function cargarDesdeFirebase() {
     querySnapshot.forEach((docSnap) => {
       datosCamiones.push({ idFirestore: docSnap.id, ...docSnap.data() });
     });
+    
     poblarSelect(datosCamiones);
+
+    // Cargar automáticamente el primer registro guardado si existe al iniciar/recargar
+    if (datosCamiones.length > 0) {
+      const selectConductor = document.getElementById("selectConductor");
+      if (selectConductor) {
+        selectConductor.value = datosCamiones[0].idFirestore;
+      }
+      cargarCamionEnFormulario(datosCamiones[0]);
+    } else {
+      limpiarFormularioSinBuscador();
+    }
   } catch (error) {
     console.error("Error al obtener datos de Firebase:", error);
   }
@@ -209,7 +221,6 @@ async function guardarRegistro() {
       alert("¡Registro guardado en Firebase!");
     }
     await cargarDesdeFirebase();
-    limpiarFormulario();
   } catch (error) {
     console.error("Error detallado al guardar en Firebase:", error);
     alert("Ocurrió un error al guardar: " + error.message);
@@ -230,7 +241,6 @@ async function borrarRegistro() {
       await deleteDoc(docRef);
       alert("Registro eliminado de Firebase.");
       await cargarDesdeFirebase();
-      limpiarFormulario();
     } catch (error) {
       console.error("Error al borrar en Firebase:", error);
       alert("Ocurrió un error al intentar eliminar el registro.");
@@ -396,7 +406,7 @@ function inicializarListeners() {
   document.getElementById("btnExportar")?.addEventListener("click", exportarExcelEstilizado);
 }
 
-// Exportar funciones principales a `window` para llamadas directas desde HTML (onclick, onchange, etc.)
+// Exportar funciones principales a `window` para llamadas directas desde HTML
 window.guardarRegistro = guardarRegistro;
 window.borrarRegistro = borrarRegistro;
 window.limpiarFormulario = limpiarFormulario;
