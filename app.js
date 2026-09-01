@@ -182,7 +182,6 @@ async function guardarRegistro() {
 
   calcularPesoNeto();
 
-  // Se sanitizan todos los valores para no enviar undefined
   const nuevoRegistro = {
     conductor: conductor,
     placa: document.getElementById("placa")?.value || "",
@@ -396,6 +395,15 @@ function inicializarListeners() {
   document.getElementById("btnBorrar")?.addEventListener("click", borrarRegistro);
   document.getElementById("btnExportar")?.addEventListener("click", exportarExcelEstilizado);
 }
+
+// Exportar funciones principales a `window` para llamadas directas desde HTML (onclick, onchange, etc.)
+window.guardarRegistro = guardarRegistro;
+window.borrarRegistro = borrarRegistro;
+window.limpiarFormulario = limpiarFormulario;
+window.exportarExcelEstilizado = exportarExcelEstilizado;
+window.buscarEnTiempoReal = buscarEnTiempoReal;
+window.cargarDatosDesdeSelect = cargarDatosDesdeSelect;
+window.calcularPesoNeto = calcularPesoNeto;
 
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", inicializarListeners);
