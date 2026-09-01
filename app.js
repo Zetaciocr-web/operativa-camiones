@@ -11,10 +11,10 @@ import {
   addDoc, 
   doc, 
   updateDoc, 
-  deleteDoc,
-  onSnapshot
+  deleteDoc 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
+// Configuración de Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyDZQ7AK_a4__wJEbD-Eay2AQ6uT4dI21LA",
   authDomain: "operativa-camiones.firebaseapp.com",
@@ -24,6 +24,7 @@ const firebaseConfig = {
   appId: "1:401625540838:web:9c1db7a1adabea1697327"
 };
 
+// Inicializar Firebase, Autenticación y Firestore
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -32,28 +33,18 @@ const coleccionCamiones = collection(db, "camiones");
 let datosCamiones = [];
 let registroSeleccionadoId = null;
 
+// Iniciar sesión anónima en segundo plano de forma automática e invisible
+signInAnonymously(auth).catch((error) => console.error("Error al autenticar:", error));
+
+// Cargar registros una vez que la sesión esté lista
 onAuthStateChanged(auth, (user) => {
   if (user) {
-    escucharCambiosFirebase();
-  } else {
-    signInAnonymously(auth).catch((error) => console.error("Error al autenticar:", error));
+    cargarDesdeFirebase();
   }
 });
 
-function escucharCambiosFirebase() {
-  onSnapshot(coleccionCamiones, (querySnapshot) => {
-    datosCamiones = [];
-    querySnapshot.forEach((docSnap) => {
-      datosCamiones.push({ idFirestore: docSnap.id, ...docSnap.data() });
-    });
-    poblarSelect(datosCamiones);
-  }, (error) => {
-    console.error("Error al escuchar Firestore:", error);
-    cargarDesdeFirebaseManual();
-  });
-}
-
-async function cargarDesdeFirebaseManual() {
+// Cargar registros desde Firebase Firestore
+async function cargarDesdeFirebase() {
   try {
     const querySnapshot = await getDocs(coleccionCamiones);
     datosCamiones = [];
@@ -66,6 +57,7 @@ async function cargarDesdeFirebaseManual() {
   }
 }
 
+// Calcular peso neto automáticamente
 function calcularPesoNeto() {
   const taraElem = document.getElementById("tara");
   const brutoElem = document.getElementById("bruto");
@@ -84,20 +76,22 @@ function calcularPesoNeto() {
   }
 }
 
+// Poblar el menú desplegable con registros
 function poblarSelect(lista) {
   const select = document.getElementById("selectConductor");
   if (!select) return;
 
-  if (!lista || lista.length === 0) {
+  if (lista.length === 0) {
     select.innerHTML = '<option value="">-- Sin registros guardados --</option>';
     return;
   }
   select.innerHTML = '<option value="">-- Seleccionar de los registros --</option>';
   lista.forEach(item => {
-    select.innerHTML += `<option value="${item.idFirestore}">${item.conductor || 'Sin Conductor'} (${item.placa || 'Sin placa'})</option>`;
+    select.innerHTML += `<option value="${item.idFirestore}">${item.conductor} (${item.placa || 'Sin placa'})</option>`;
   });
 }
 
+// Buscar registros en tiempo real por conductor, placa, licencia, etc.
 function buscarEnTiempoReal() {
   const buscador = document.getElementById("buscador");
   if (!buscador) return;
@@ -128,6 +122,7 @@ function buscarEnTiempoReal() {
   }
 }
 
+// Cargar datos en el formulario al seleccionar del desplegable
 function cargarDatosDesdeSelect() {
   const selectConductor = document.getElementById("selectConductor");
   if (!selectConductor) return;
@@ -141,6 +136,7 @@ function cargarDatosDesdeSelect() {
   if (c) cargarCamionEnFormulario(c);
 }
 
+// Cargar un objeto camion a los inputs del HTML
 function cargarCamionEnFormulario(c) {
   registroSeleccionadoId = c.idFirestore;
   document.getElementById("conductor").value = c.conductor || "";
@@ -167,6 +163,7 @@ function cargarCamionEnFormulario(c) {
   calcularPesoNeto();
 }
 
+// Guardar o actualizar registro en Firebase
 async function guardarRegistro() {
   const conductorInput = document.getElementById("conductor");
   const conductor = conductorInput ? conductorInput.value.trim() : "";
@@ -185,6 +182,7 @@ async function guardarRegistro() {
 
   calcularPesoNeto();
 
+  // Se sanitizan todos los valores para no enviar undefined
   const nuevoRegistro = {
     conductor: conductor,
     placa: document.getElementById("placa")?.value || "",
@@ -211,13 +209,15 @@ async function guardarRegistro() {
       await addDoc(coleccionCamiones, nuevoRegistro);
       alert("¡Registro guardado en Firebase!");
     }
+    await cargarDesdeFirebase();
     limpiarFormulario();
   } catch (error) {
-    console.error("Error al guardar:", error);
+    console.error("Error detallado al guardar en Firebase:", error);
     alert("Ocurrió un error al guardar: " + error.message);
   }
 }
 
+// Borrar registro en Firebase
 async function borrarRegistro() {
   if (registroSeleccionadoId === null) {
     alert("Primero busca y selecciona un conductor para poder borrarlo.");
@@ -230,14 +230,16 @@ async function borrarRegistro() {
       const docRef = doc(db, "camiones", registroSeleccionadoId);
       await deleteDoc(docRef);
       alert("Registro eliminado de Firebase.");
+      await cargarDesdeFirebase();
       limpiarFormulario();
     } catch (error) {
-      console.error("Error al borrar:", error);
+      console.error("Error al borrar en Firebase:", error);
       alert("Ocurrió un error al intentar eliminar el registro.");
     }
   }
 }
 
+// Limpiar formulario y buscador
 function limpiarFormulario() {
   const buscador = document.getElementById("buscador");
   if (buscador) buscador.value = "";
@@ -257,6 +259,7 @@ function limpiarFormularioSinBuscador() {
   if (ninguno) ninguno.checked = true;
 }
 
+// Exportar a Excel estilizado usando ExcelJS
 async function exportarExcelEstilizado() {
   if (datosCamiones.length === 0) {
     alert("No hay registros guardados para exportar.");
@@ -266,6 +269,7 @@ async function exportarExcelEstilizado() {
   const workbook = new ExcelJS.Workbook();
   const worksheet = workbook.addWorksheet("Operativa Camiones");
 
+  // Título Principal
   worksheet.mergeCells('A1:N1');
   const tituloCell = worksheet.getCell('A1');
   tituloCell.value = "OPERATIVA DE CAMIONES";
@@ -274,6 +278,7 @@ async function exportarExcelEstilizado() {
   tituloCell.alignment = { vertical: 'middle', horizontal: 'center' };
   worksheet.getRow(1).height = 30;
 
+  // Cabeceras de tabla
   const columnas = [
     { header: "CONDUCTOR", key: "conductor", width: 28 },
     { header: "PLACA", key: "placa", width: 14 },
@@ -308,14 +313,15 @@ async function exportarExcelEstilizado() {
     right: { style: 'thin', color: { argb: 'D9D9D9' } }
   };
 
+  // Datos
   datosCamiones.forEach((item, rowIndex) => {
     const currentRow = rowIndex + 4;
     const row = worksheet.getRow(currentRow);
     const llegoTexto = item.estado === "LLEGO" ? "CONFIRMADO" : "";
     const noLlegoTexto = item.estado === "NO LLEGO" ? "PENDIENTE" : "";
 
-    const taraNum = (item.tara !== "" && item.tara !== null) ? parseFloat(item.tara) : null;
-    const brutoNum = (item.bruto !== "" && item.bruto !== null) ? parseFloat(item.bruto) : null;
+    const taraNum = item.tara ? parseFloat(item.tara) : "";
+    const brutoNum = item.bruto ? parseFloat(item.bruto) : "";
 
     row.getCell(1).value = item.conductor || "";
     row.getCell(2).value = item.placa || "";
@@ -325,15 +331,11 @@ async function exportarExcelEstilizado() {
     row.getCell(6).value = item.empresa || "";
     row.getCell(7).value = item.precinto || "";
     row.getCell(8).value = item.contenedor || "";
-    row.getCell(9).value = taraNum;
     
-    if (taraNum !== null && brutoNum !== null) {
-      row.getCell(10).value = { formula: `K${currentRow}-I${currentRow}` };
-    } else {
-      row.getCell(10).value = "";
-    }
-
+    row.getCell(9).value = taraNum;
+    row.getCell(10).value = { formula: `K${currentRow}-I${currentRow}` };
     row.getCell(11).value = brutoNum;
+
     row.getCell(12).value = llegoTexto;
     row.getCell(13).value = noLlegoTexto;
     row.getCell(14).value = item.observaciones || "";
@@ -373,6 +375,7 @@ async function exportarExcelEstilizado() {
     worksheet.getColumn(i + 1).width = col.width;
   });
 
+  // Generar y descargar archivo
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
   const link = document.createElement("a");
@@ -381,6 +384,7 @@ async function exportarExcelEstilizado() {
   link.click();
 }
 
+// Inicialización de Listeners segura
 function inicializarListeners() {
   document.getElementById("tara")?.addEventListener("input", calcularPesoNeto);
   document.getElementById("bruto")?.addEventListener("input", calcularPesoNeto);
