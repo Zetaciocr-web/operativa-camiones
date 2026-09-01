@@ -33,10 +33,13 @@ const coleccionCamiones = collection(db, "camiones");
 let datosCamiones = [];
 let registroSeleccionadoId = null;
 
-// Iniciar sesión anónima en segundo plano de forma automática e invisible
+// Cargar de inmediato los datos de Firestore al iniciar la aplicación
+cargarDesdeFirebase();
+
+// Autenticar anónimamente en segundo plano para habilitar permisos si la regla lo exige
 signInAnonymously(auth).catch((error) => console.error("Error al autenticar:", error));
 
-// Cargar registros una vez que la sesión esté lista
+// Re-sincronizar si cambia el estado de autenticación
 onAuthStateChanged(auth, (user) => {
   if (user) {
     cargarDesdeFirebase();
