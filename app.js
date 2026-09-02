@@ -282,7 +282,7 @@ async function exportarExcelEstilizado() {
   const worksheet = workbook.addWorksheet("Operativa Camiones");
 
   // Título Principal
-  worksheet.mergeCells('A1:N1');
+  worksheet.mergeCells('A1:O1');
   const tituloCell = worksheet.getCell('A1');
   tituloCell.value = "OPERATIVA DE CAMIONES";
   tituloCell.font = { name: 'Arial', size: 14, bold: true, color: { argb: 'FFFFFF' } };
@@ -292,6 +292,7 @@ async function exportarExcelEstilizado() {
 
   // Cabeceras de tabla
   const columnas = [
+    { header: "N°", key: "numero", width: 6 },
     { header: "CONDUCTOR", key: "conductor", width: 28 },
     { header: "PLACA", key: "placa", width: 14 },
     { header: "LICENCIA", key: "licencia", width: 14 },
@@ -332,49 +333,51 @@ async function exportarExcelEstilizado() {
     const llegoTexto = item.estado === "LLEGO" ? "CONFIRMADO" : "";
     const noLlegoTexto = item.estado === "NO LLEGO" ? "PENDIENTE" : "";
 
-    const taraNum = item.tara ? parseFloat(item.tara) : "";
-    const brutoNum = item.bruto ? parseFloat(item.bruto) : "";
+    const taraNum = (item.tara !== "" && item.tara !== null && item.tara !== undefined) ? parseFloat(item.tara) : "";
+    const brutoNum = (item.bruto !== "" && item.bruto !== null && item.bruto !== undefined) ? parseFloat(item.bruto) : "";
 
-    row.getCell(1).value = item.conductor || "";
-    row.getCell(2).value = item.placa || "";
-    row.getCell(3).value = item.licencia || "";
-    row.getCell(4).value = item.exp || "";
-    row.getCell(5).value = item.tel || "";
-    row.getCell(6).value = item.empresa || "";
-    row.getCell(7).value = item.precinto || "";
-    row.getCell(8).value = item.contenedor || "";
+    row.getCell(1).value = rowIndex + 1; // Número correlativo (1, 2, 3...)
+    row.getCell(2).value = item.conductor || "";
+    row.getCell(3).value = item.placa || "";
+    row.getCell(4).value = item.licencia || "";
+    row.getCell(5).value = item.exp || "";
+    row.getCell(6).value = item.tel || "";
+    row.getCell(7).value = item.empresa || "";
+    row.getCell(8).value = item.precinto || "";
+    row.getCell(9).value = item.contenedor || "";
     
-    row.getCell(9).value = taraNum;
-    row.getCell(10).value = { formula: `K${currentRow}-I${currentRow}` };
-    row.getCell(11).value = brutoNum;
+    row.getCell(10).value = taraNum;
+    // Fórmula que oculta #¡VALOR! si Bruto (L) o Tara (J) están vacíos
+    row.getCell(11).value = { formula: `IF(OR(ISBLANK(L${currentRow}), ISBLANK(J${currentRow})), "", L${currentRow}-J${currentRow})` };
+    row.getCell(12).value = brutoNum;
 
-    row.getCell(12).value = llegoTexto;
-    row.getCell(13).value = noLlegoTexto;
-    row.getCell(14).value = item.observaciones || "";
+    row.getCell(13).value = llegoTexto;
+    row.getCell(14).value = noLlegoTexto;
+    row.getCell(15).value = item.observaciones || "";
 
-    for (let c = 1; c <= 14; c++) {
+    for (let c = 1; c <= 15; c++) {
       const cell = row.getCell(c);
       cell.border = thinBorder;
       cell.font = { name: 'Arial', size: 9 };
 
-      if (c >= 9 && c <= 11) {
+      if (c >= 10 && c <= 12) {
         cell.numFmt = '#,##0.00';
         cell.alignment = { vertical: 'middle', horizontal: 'right' };
-      } else if (c === 1 || c === 14) {
+      } else if (c === 2 || c === 15) {
         cell.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true };
       } else {
         cell.alignment = { vertical: 'middle', horizontal: 'center' };
       }
 
-      if (c === 10) {
+      if (c === 11) {
         cell.font = { name: 'Arial', size: 9, bold: true };
       }
 
-      if (c === 12 && llegoTexto === "CONFIRMADO") {
+      if (c === 13 && llegoTexto === "CONFIRMADO") {
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'E2EFDA' } };
         cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: '375623' } };
       }
-      if (c === 13 && noLlegoTexto === "PENDIENTE") {
+      if (c === 14 && noLlegoTexto === "PENDIENTE") {
         cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FCE4D6' } };
         cell.font = { name: 'Arial', size: 9, bold: true, color: { argb: 'C65911' } };
       }
