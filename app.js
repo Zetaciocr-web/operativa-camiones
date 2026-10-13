@@ -53,11 +53,19 @@ function iniciarEscuchaEnTiempoReal() {
     datosCamiones = [];
     snapshot.forEach((docSnap) => {
       const data = docSnap.data();
+      
+      // Manejo seguro y blindado de fechaCreacion para evitar conflictos con Android
+      let fechaValida = Date.now();
+      if (typeof data.fechaCreacion === 'number') {
+        fechaValida = data.fechaCreacion;
+      } else if (data.fechaCreacion && typeof data.fechaCreacion.toMillis === 'function') {
+        fechaValida = data.fechaCreacion.toMillis();
+      }
+
       datosCamiones.push({ 
         idFirestore: docSnap.id, 
         ...data,
-        // Aseguramos que fechaCreacion sea un número seguro (compatible con Long de Android)
-        fechaCreacion: typeof data.fechaCreacion === 'number' ? data.fechaCreacion : 0 
+        fechaCreacion: fechaValida
       });
     });
 
