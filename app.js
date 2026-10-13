@@ -1,10 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { 
-  getAuth, 
-  signInAnonymously, 
-  onAuthStateChanged 
-} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { 
   getFirestore, 
   collection, 
   addDoc, 
@@ -25,28 +20,18 @@ const firebaseConfig = {
   appId: "1:401625540838:web:9c1db7a1adabea1697327"
 };
 
-// Inicializar Firebase, Autenticación y Firestore
+// Inicializar Firebase y Firestore directamente
 const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
 const db = getFirestore(app);
 const coleccionCamiones = collection(db, "camiones");
 
 let datosCamiones = [];
 let registroSeleccionadoId = null;
 
-// Autenticar anónimamente en segundo plano de forma automática
-signInAnonymously(auth).catch((error) => console.error("Error al autenticar:", error));
+// Iniciar la escucha en tiempo real de inmediato al cargar la página
+iniciarEscuchaEnTiempoReal();
 
-// Escuchar cambios de autenticación para iniciar la escucha en tiempo real
-onAuthStateChanged(auth, (user) => {
-  if (user) {
-    iniciarEscuchaEnTiempoReal();
-  }
-});
-
-// Sincronización en tiempo real sin bloqueo de índices (ordenamiento local seguro)
 function iniciarEscuchaEnTiempoReal() {
-  // Consultamos la colección directamente sin orderBy para evitar que documentos sin fecha bloqueen la carga
   const q = query(coleccionCamiones);
   
   onSnapshot(q, (snapshot) => {
@@ -54,7 +39,6 @@ function iniciarEscuchaEnTiempoReal() {
     snapshot.forEach((docSnap) => {
       const data = docSnap.data();
       
-      // Manejo seguro y blindado de fechaCreacion
       let fechaValida = Date.now();
       if (typeof data.fechaCreacion === 'number') {
         fechaValida = data.fechaCreacion;
@@ -124,12 +108,12 @@ function poblarSelect(lista) {
   select.innerHTML = '<option value="">-- Seleccionar de los registros --</option>';
   
   lista.forEach((item, index) => {
-    const numeroGuia = index + 1; // Genera 1, 2, 3... exactamente igual al orden
+    const numeroGuia = index + 1; 
     select.innerHTML += `<option value="${item.idFirestore}">${numeroGuia}. ${item.conductor || 'Sin Conductor'} (${item.placa || 'Sin placa'})</option>`;
   });
 }
 
-// Buscar registros en tiempo real manteniendo la numeración relativa limpia
+// Buscar registros en tiempo real
 function buscarEnTiempoReal() {
   const buscador = document.getElementById("buscador");
   if (!buscador) return;
@@ -201,7 +185,7 @@ function cargarCamionEnFormulario(c) {
   calcularPesoNeto();
 }
 
-// Guardar o actualizar registro respetando estrictamente la estructura de Android
+// Guardar o actualizar registro
 async function guardarRegistro() {
   const conductorInput = document.getElementById("conductor");
   const conductor = conductorInput ? conductorInput.value.trim() : "";
@@ -294,7 +278,7 @@ function limpiarFormularioSinBuscador() {
   if (ninguno) ninguno.checked = true;
 }
 
-// Exportar a Excel estilizado manteniendo la correlación exacta (1, 2, 3...)
+// Exportar a Excel estilizado
 async function exportarExcelEstilizado() {
   if (datosCamiones.length === 0) {
     alert("No hay registros guardados para exportar.");
@@ -356,7 +340,7 @@ async function exportarExcelEstilizado() {
     const taraNum = (item.tara !== "" && item.tara !== null && item.tara !== undefined) ? parseFloat(item.tara) : "";
     const brutoNum = (item.bruto !== "" && item.bruto !== null && item.bruto !== undefined) ? parseFloat(item.bruto) : "";
 
-    row.getCell(1).value = rowIndex + 1; // Número correlativo (1, 2, 3...) idéntico al spinner
+    row.getCell(1).value = rowIndex + 1;
     row.getCell(2).value = item.conductor || "";
     row.getCell(3).value = item.placa || "";
     row.getCell(4).value = item.licencia || "";
