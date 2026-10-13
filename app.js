@@ -12,8 +12,7 @@ import {
   updateDoc, 
   deleteDoc,
   onSnapshot,
-  query,
-  orderBy 
+  query 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 // Configuración de Firebase
@@ -45,16 +44,17 @@ onAuthStateChanged(auth, (user) => {
   }
 });
 
-// Sincronización en tiempo real idéntica a la app Android (ordenada por fechaCreacion)
+// Sincronización en tiempo real sin bloqueo de índices (ordenamiento local seguro)
 function iniciarEscuchaEnTiempoReal() {
-  const q = query(coleccionCamiones, orderBy("fechaCreacion", "asc"));
+  // Consultamos la colección directamente sin orderBy para evitar que documentos sin fecha bloqueen la carga
+  const q = query(coleccionCamiones);
   
   onSnapshot(q, (snapshot) => {
     datosCamiones = [];
     snapshot.forEach((docSnap) => {
       const data = docSnap.data();
       
-      // Manejo seguro y blindado de fechaCreacion para evitar conflictos con Android
+      // Manejo seguro y blindado de fechaCreacion
       let fechaValida = Date.now();
       if (typeof data.fechaCreacion === 'number') {
         fechaValida = data.fechaCreacion;
@@ -67,6 +67,13 @@ function iniciarEscuchaEnTiempoReal() {
         ...data,
         fechaCreacion: fechaValida
       });
+    });
+
+    // Ordenamiento local seguro por fecha de creación (del más antiguo al más nuevo)
+    datosCamiones.sort((a, b) => {
+      const f1 = a.fechaCreacion || 0;
+      const f2 = b.fechaCreacion || 0;
+      return f1 - f2;
     });
 
     poblarSelect(datosCamiones);
@@ -117,7 +124,7 @@ function poblarSelect(lista) {
   select.innerHTML = '<option value="">-- Seleccionar de los registros --</option>';
   
   lista.forEach((item, index) => {
-    const numeroGuia = index + 1; // Genera 1, 2, 3... exactamente igual al orden de la base de datos
+    const numeroGuia = index + 1; // Genera 1, 2, 3... exactamente igual al orden
     select.innerHTML += `<option value="${item.idFirestore}">${numeroGuia}. ${item.conductor || 'Sin Conductor'} (${item.placa || 'Sin placa'})</option>`;
   });
 }
@@ -213,7 +220,6 @@ async function guardarRegistro() {
 
   calcularPesoNeto();
 
-  // Mapeo idéntico al Map que usa tu aplicación Android
   const camionMap = {
     conductor: conductor,
     placa: document.getElementById("placa")?.value || "",
@@ -236,7 +242,6 @@ async function guardarRegistro() {
       await updateDoc(docRef, camionMap);
       alert("¡Actualizado correctamente desde la web!");
     } else {
-      // Agregamos fechaCreacion como número puro (Date.now()) equivalente a System.currentTimeMillis() de Android
       camionMap.fechaCreacion = Date.now();
       await addDoc(coleccionCamiones, camionMap);
       alert("¡Guardado correctamente desde la web!");
