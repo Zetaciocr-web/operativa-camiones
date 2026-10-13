@@ -35,23 +35,30 @@ const coleccionCamiones = collection(db, "camiones");
 let datosCamiones = [];
 let registroSeleccionadoId = null;
 
-// Autenticar anónimamente en segundo plano
+// Autenticar anónimamente en segundo plano de forma automática
 signInAnonymously(auth).catch((error) => console.error("Error al autenticar:", error));
 
+// Escuchar cambios de autenticación para iniciar la escucha en tiempo real
 onAuthStateChanged(auth, (user) => {
   if (user) {
     iniciarEscuchaEnTiempoReal();
   }
 });
 
-// Sincronización en tiempo real idéntica a tu app Android (ordenado por fechaCreacion)
+// Sincronización en tiempo real idéntica a la app Android (ordenada por fechaCreacion)
 function iniciarEscuchaEnTiempoReal() {
   const q = query(coleccionCamiones, orderBy("fechaCreacion", "asc"));
   
   onSnapshot(q, (snapshot) => {
     datosCamiones = [];
     snapshot.forEach((docSnap) => {
-      datosCamiones.push({ idFirestore: docSnap.id, ...docSnap.data() });
+      const data = docSnap.data();
+      datosCamiones.push({ 
+        idFirestore: docSnap.id, 
+        ...data,
+        // Aseguramos que fechaCreacion sea un número seguro (compatible con Long de Android)
+        fechaCreacion: typeof data.fechaCreacion === 'number' ? data.fechaCreacion : 0 
+      });
     });
 
     poblarSelect(datosCamiones);
@@ -89,7 +96,7 @@ function calcularPesoNeto() {
   }
 }
 
-// Poblar el menú desplegable con la numeración de guía exacta (1, 2, 3...)
+// Poblar el menú desplegable con la numeración correlativa (1, 2, 3...)
 function poblarSelect(lista) {
   const select = document.getElementById("selectConductor");
   if (!select) return;
@@ -102,12 +109,12 @@ function poblarSelect(lista) {
   select.innerHTML = '<option value="">-- Seleccionar de los registros --</option>';
   
   lista.forEach((item, index) => {
-    const numeroGuia = index + 1; // Genera el 1, 2, 3... correlativo perfecto
+    const numeroGuia = index + 1; // Genera 1, 2, 3... exactamente igual al orden de la base de datos
     select.innerHTML += `<option value="${item.idFirestore}">${numeroGuia}. ${item.conductor || 'Sin Conductor'} (${item.placa || 'Sin placa'})</option>`;
   });
 }
 
-// Buscar registros en tiempo real manteniendo la numeración relativa
+// Buscar registros en tiempo real manteniendo la numeración relativa limpia
 function buscarEnTiempoReal() {
   const buscador = document.getElementById("buscador");
   if (!buscador) return;
@@ -179,7 +186,7 @@ function cargarCamionEnFormulario(c) {
   calcularPesoNeto();
 }
 
-// Guardar o actualizar registro respetando exactamente la estructura de tu app Android
+// Guardar o actualizar registro respetando estrictamente la estructura de Android
 async function guardarRegistro() {
   const conductorInput = document.getElementById("conductor");
   const conductor = conductorInput ? conductorInput.value.trim() : "";
@@ -198,7 +205,7 @@ async function guardarRegistro() {
 
   calcularPesoNeto();
 
-  // Estructura de datos exactamente idéntica al Map de tu Android
+  // Mapeo idéntico al Map que usa tu aplicación Android
   const camionMap = {
     conductor: conductor,
     placa: document.getElementById("placa")?.value || "",
@@ -217,12 +224,11 @@ async function guardarRegistro() {
 
   try {
     if (registroSeleccionadoId !== null && registroSeleccionadoId !== "") {
-      // Actualizar registro existente usando updateDoc (respetando fechaCreacion original de la BD)
       const docRef = doc(db, "camiones", registroSeleccionadoId);
       await updateDoc(docRef, camionMap);
       alert("¡Actualizado correctamente desde la web!");
     } else {
-      // Crear nuevo registro agregando la fecha en formato numérico igual que Android (Date.now())
+      // Agregamos fechaCreacion como número puro (Date.now()) equivalente a System.currentTimeMillis() de Android
       camionMap.fechaCreacion = Date.now();
       await addDoc(coleccionCamiones, camionMap);
       alert("¡Guardado correctamente desde la web!");
@@ -275,7 +281,7 @@ function limpiarFormularioSinBuscador() {
   if (ninguno) ninguno.checked = true;
 }
 
-// Exportar a Excel estilizado manteniendo idéntica la correlación 1, 2, 3...
+// Exportar a Excel estilizado manteniendo la correlación exacta (1, 2, 3...)
 async function exportarExcelEstilizado() {
   if (datosCamiones.length === 0) {
     alert("No hay registros guardados para exportar.");
